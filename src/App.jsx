@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from "react";
-
+import { useState, useEffect, useRef, useCallback } from "react";
 const SUPABASE_URL = "https://erhpdewgxthnvovkvpmf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaHBkZXdneHRobnZvdmt2cG1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NTAwNzYsImV4cCI6MjA5MDUyNjA3Nn0.XLAMCY_xdjsRRtuC9AM2-ijBNPqdeAOo1UXHbqFdPxk";
 
@@ -18,7 +17,7 @@ const api = (path, opts = {}) => fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
 });
 
 function getToday() { return new Date().toISOString().split("T")[0]; }
-function genId() { return "h" + Date.now(); }
+// function genId() { return "h" + Date.now(); }  
 function getDaysInMonth(year, month) {
   const days = [], d = new Date(year, month, 1);
   while (d.getMonth() === month) { days.push(d.toISOString().split("T")[0]); d.setDate(d.getDate() + 1); }
@@ -63,9 +62,11 @@ export default function App() {
     if (window.location.hash.includes("access_token")) {
       handleOAuthCallback();
     }
-  }, []);
+  }, [checkSession, handleOAuthCallback]);
 
-  async function checkSession() {
+
+
+  const checkSession = useCallback(async () => {
     try {
       const stored = localStorage.getItem("ht_session");
       if (stored) {
@@ -81,8 +82,9 @@ export default function App() {
     } catch { }
     setAuthLoading(false);
   }
+  )
 
-  async function handleOAuthCallback() {
+  const handleOAuthCallback = useCallback(async () => {
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
     const access_token = params.get("access_token");
@@ -104,7 +106,7 @@ export default function App() {
     } catch (e) { console.error(e); }
     setAuthLoading(false);
   }
-
+  )
   async function ensureProfile(tok, uid, email) {
     const res = await api(`profiles?id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } });
     const data = await res.json();
@@ -166,7 +168,7 @@ export default function App() {
         body: JSON.stringify({ theme: dark ? "dark" : "light" })
       }).catch(() => { });
     }
-  }, [dark]);
+  }, [dark, session]);
 
   // ── Habits CRUD ───────────────────────────────────────
   const toggleLog = async (habitId, date) => {
@@ -280,7 +282,7 @@ export default function App() {
         .scrollable-table::-webkit-scrollbar-track{background:transparent}
         .scrollable-table::-webkit-scrollbar-thumb{background:${muted};border-radius:2px}
         .scrollable-table{scrollbar-width:thin;scrollbar-color:${muted} transparent}
-      `}</style>  
+      `}</style>
 
       {/* Header */}
       <div style={{ background: card, borderBottom: `0.5px solid ${border}`, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 }}>
