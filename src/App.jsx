@@ -71,7 +71,7 @@ export default function App() {
       }
     } catch { }
     setAuthLoading(false);
-  }
+  }, []
   )
 
   const handleOAuthCallback = useCallback(async () => {
@@ -95,7 +95,7 @@ export default function App() {
       await loadData(access_token, user.id);
     } catch (e) { console.error(e); }
     setAuthLoading(false);
-  }
+  },[]
   )
 
   // ── Auth ──────────────────────────────────────────────
@@ -108,41 +108,41 @@ export default function App() {
   }, [checkSession, handleOAuthCallback]);
 
 
-const loadData = useCallback(async (tok, uid) => {
-  setDataLoading(true);
-  try {
-    const [hRes, lRes] = await Promise.all([
-      api(`habits?user_id=eq.${uid}&order=created_at.asc`, { _token: tok, headers: { "Accept": "application/json" } }),
-      api(`habit_logs?user_id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } })
-    ]);
-    const habitsData = await hRes.json();
-    const logsData = await lRes.json();
-    setHabits(Array.isArray(habitsData) ? habitsData : []);
-    const logsMap = {};
-    if (Array.isArray(logsData)) {
-      logsData.forEach(l => {
-        if (!logsMap[l.habit_id]) logsMap[l.habit_id] = {};
-        logsMap[l.habit_id][l.date] = true;
-      });
-    }
-    setLogs(logsMap);
-  } catch (e) { console.error(e); }
-  setDataLoading(false);
-}, []); // Add dependencies if any
+  const loadData = useCallback(async (tok, uid) => {
+    setDataLoading(true);
+    try {
+      const [hRes, lRes] = await Promise.all([
+        api(`habits?user_id=eq.${uid}&order=created_at.asc`, { _token: tok, headers: { "Accept": "application/json" } }),
+        api(`habit_logs?user_id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } })
+      ]);
+      const habitsData = await hRes.json();
+      const logsData = await lRes.json();
+      setHabits(Array.isArray(habitsData) ? habitsData : []);
+      const logsMap = {};
+      if (Array.isArray(logsData)) {
+        logsData.forEach(l => {
+          if (!logsMap[l.habit_id]) logsMap[l.habit_id] = {};
+          logsMap[l.habit_id][l.date] = true;
+        });
+      }
+      setLogs(logsMap);
+    } catch (e) { console.error(e); }
+    setDataLoading(false);
+  }, []); // Add dependencies if any
 
-const ensureProfile = useCallback(async (tok, uid, email) => {
-  const res = await api(`profiles?id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } });
-  const data = await res.json();
-  if (!data.length) {
-    await api("profiles", {
-      method: "POST", _token: tok, prefer: "return=minimal",
-      body: JSON.stringify({ id: uid, email, theme: dark ? "dark" : "light" })
-    });
-  } else {
-    const savedTheme = data[0].theme;
-    if (savedTheme) { setDark(savedTheme === "dark"); saveTheme(savedTheme === "dark"); }
-  }
-}, [dark]); 
+  const ensureProfile = useCallback(async (tok, uid, email) => {
+    const res = await api(`profiles?id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } });
+    const data = await res.json();
+    if (!data.length) {
+      await api("profiles", {
+        method: "POST", _token: tok, prefer: "return=minimal",
+        body: JSON.stringify({ id: uid, email, theme: dark ? "dark" : "light" })
+      });
+    } else {
+      const savedTheme = data[0].theme;
+      if (savedTheme) { setDark(savedTheme === "dark"); saveTheme(savedTheme === "dark"); }
+    }
+  }, [dark]);
 
   function signInWithGoogle() {
     const redirectTo = encodeURIComponent(window.location.href.split("#")[0]);
