@@ -280,7 +280,7 @@ export default function App() {
         .scrollable-table::-webkit-scrollbar-track{background:transparent}
         .scrollable-table::-webkit-scrollbar-thumb{background:${muted};border-radius:2px}
         .scrollable-table{scrollbar-width:thin;scrollbar-color:${muted} transparent}
-      `}</style>
+      `}</style>  
 
       {/* Header */}
       <div style={{ background: card, borderBottom: `0.5px solid ${border}`, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 }}>
@@ -290,7 +290,7 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => setDark(d => !d)} style={{ background: "none", border: `0.5px solid ${border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 11, color: muted }}>{dark ? "Light" : "Dark"}</button>
-          <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#7F77DD", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 500, color: "#fff", cursor: "pointer" }} title={session.user.email} onClick={() => { if (confirm("Sign out?")) signOut(); }}>{userInitial}</div>
+          <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#7F77DD", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 500, color: "#fff", cursor: "pointer" }} title={session.user.email} onClick={() => { if (window.confirm("Are you sure you want to sign out?")) signOut(); }}>{userInitial}</div>
         </div>
       </div>
 
