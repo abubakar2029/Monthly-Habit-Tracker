@@ -56,58 +56,6 @@ export default function App() {
   const token = useRef(null);
 
 
-  const checkSession = useCallback(async () => {
-    try {
-      const stored = localStorage.getItem("ht_session");
-      if (stored) {
-        const s = JSON.parse(stored);
-        if (s.expires_at > Date.now() / 1000) {
-          token.current = s.access_token;
-          setSession(s);
-          await loadData(s.access_token, s.user.id);
-        } else {
-          localStorage.removeItem("ht_session");
-        }
-      }
-    } catch { }
-    setAuthLoading(false);
-  }, []
-  )
-
-  const handleOAuthCallback = useCallback(async () => {
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const access_token = params.get("access_token");
-    const refresh_token = params.get("refresh_token");
-    const expires_in = params.get("expires_in");
-    if (!access_token) return;
-    try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${access_token}` }
-      });
-      const user = await res.json();
-      const s = { access_token, refresh_token, user, expires_at: Date.now() / 1000 + parseInt(expires_in || 3600) };
-      localStorage.setItem("ht_session", JSON.stringify(s));
-      token.current = access_token;
-      setSession(s);
-      window.history.replaceState({}, document.title, window.location.pathname);
-      await ensureProfile(access_token, user.id, user.email);
-      await loadData(access_token, user.id);
-    } catch (e) { console.error(e); }
-    setAuthLoading(false);
-  },[]
-  )
-
-  // ── Auth ──────────────────────────────────────────────
-  useEffect(() => {
-    checkSession();
-    // Listen for hash-based OAuth callback
-    if (window.location.hash.includes("access_token")) {
-      handleOAuthCallback();
-    }
-  }, [checkSession, handleOAuthCallback]);
-
-
   const loadData = useCallback(async (tok, uid) => {
     setDataLoading(true);
     try {
@@ -143,6 +91,60 @@ export default function App() {
       if (savedTheme) { setDark(savedTheme === "dark"); saveTheme(savedTheme === "dark"); }
     }
   }, [dark]);
+
+  const checkSession = useCallback(async () => {
+    try {
+      const stored = localStorage.getItem("ht_session");
+      if (stored) {
+        const s = JSON.parse(stored);
+        if (s.expires_at > Date.now() / 1000) {
+          token.current = s.access_token;
+          setSession(s);
+          await loadData(s.access_token, s.user.id);
+        } else {
+          localStorage.removeItem("ht_session");
+        }
+      }
+    } catch { }
+    setAuthLoading(false);
+  }, [loadData]
+  )
+
+  const handleOAuthCallback = useCallback(async () => {
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
+    const expires_in = params.get("expires_in");
+    if (!access_token) return;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${access_token}` }
+      });
+      const user = await res.json();
+      const s = { access_token, refresh_token, user, expires_at: Date.now() / 1000 + parseInt(expires_in || 3600) };
+      localStorage.setItem("ht_session", JSON.stringify(s));
+      token.current = access_token;
+      setSession(s);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      await ensureProfile(access_token, user.id, user.email);
+      await loadData(access_token, user.id);
+    } catch (e) { console.error(e); }
+    setAuthLoading(false);
+  }, [ensureProfile, loadData]
+  )
+
+  // ── Auth ──────────────────────────────────────────────
+  useEffect(() => {
+    checkSession();
+    // Listen for hash-based OAuth callback
+    if (window.location.hash.includes("access_token")) {
+      handleOAuthCallback();
+    }
+  }, [checkSession, handleOAuthCallback]);
+
+
+
 
   function signInWithGoogle() {
     const redirectTo = encodeURIComponent(window.location.href.split("#")[0]);
