@@ -50,10 +50,18 @@ export default function App() {
   const [aiTip, setAiTip] = useState("");
   const [aiError, setAiError] = useState("");
   const [dataLoading, setDataLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   const now = new Date();
   const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const today = getToday();
   const token = useRef(null);
+
+  // Responsive hook
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
 
   const loadData = useCallback(async (tok, uid) => {
@@ -259,11 +267,11 @@ export default function App() {
   );
 
   if (!session) return (
-    <div style={{ background: bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ background: card, borderRadius: 20, border: `1px solid ${border}`, padding: "48px 40px", maxWidth: 380, width: "100%", textAlign: "center", boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.04)" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-        <div style={{ fontWeight: 700, fontSize: 26, color: text, marginBottom: 12, letterSpacing: "-0.5px" }}>Habit Tracker</div>
-        <div style={{ fontSize: 15, color: muted, marginBottom: 36, lineHeight: 1.7 }}>Build lasting habits, track daily progress, and get personalized AI coaching to achieve your goals.</div>
+    <div style={{ background: bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: isMobile ? 16 : 24 }}>
+      <div style={{ background: card, borderRadius: isMobile ? 16 : 20, border: `1px solid ${border}`, padding: isMobile ? "32px 24px" : "48px 40px", maxWidth: 380, width: "100%", textAlign: "center", boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.04)" }}>
+        <div style={{ fontSize: isMobile ? 40 : 48, marginBottom: isMobile ? 12 : 16 }}>✅</div>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 22 : 26, color: text, marginBottom: 12, letterSpacing: "-0.5px" }}>Habit Tracker</div>
+        <div style={{ fontSize: isMobile ? 14 : 15, color: muted, marginBottom: isMobile ? 28 : 36, lineHeight: 1.6 }}>Build lasting habits, track daily progress, and get personalized AI coaching to achieve your goals.</div>
         <button onClick={signInWithGoogle} style={{
           width: "100%", padding: "14px 20px", borderRadius: 10, border: `1px solid ${border}`,
           background: card, color: text, fontSize: 15, fontWeight: 600, cursor: "pointer",
@@ -289,97 +297,98 @@ export default function App() {
       `}</style>
 
       {/* Header */}
-      <div style={{ background: card, borderBottom: `1px solid ${border}`, padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 }}>
+      <div style={{ background: card, borderBottom: `1px solid ${border}`, padding: isMobile ? "16px 16px" : "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 }}>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 24, letterSpacing: "-0.5px" }}>Habit Tracker</div>
-          <div style={{ fontSize: 13, color: muted, marginTop: 4 }}>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
+          <div style={{ fontWeight: 600, fontSize: isMobile ? 18 : 24, letterSpacing: "-0.5px" }}>Habit Tracker</div>
+          <div style={{ fontSize: isMobile ? 11 : 13, color: muted, marginTop: 4 }}>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => setDark(d => !d)} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 6, padding: "8px 14px", cursor: "pointer", fontSize: 13, color: muted, fontWeight: 500, transition: "all 0.2s" }}>{dark ? "☀️ Light" : "🌙 Dark"}</button>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", background: accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", transition: "all 0.2s" }} title={session.user.email} onClick={() => { if (window.confirm("Are you sure you want to sign out?")) signOut(); }}>{userInitial}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}>
+          <button onClick={() => setDark(d => !d)} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 6, padding: isMobile ? "6px 10px" : "8px 14px", cursor: "pointer", fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, transition: "all 0.2s" }}>{dark ? "☀️" : "🌙"}</button>
+          <div style={{ width: isMobile ? 36 : 40, height: isMobile ? 36 : 40, borderRadius: "50%", background: accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 14 : 16, fontWeight: 600, color: "#fff", cursor: "pointer", transition: "all 0.2s" }} title={session.user.email} onClick={() => { if (window.confirm("Are you sure you want to sign out?")) signOut(); }}>{userInitial}</div>
         </div>
       </div>
 
       {/* Nav */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${border}`, background: card, padding: "0 32px" }}>
+      <div style={{ display: "flex", borderBottom: `1px solid ${border}`, background: card, padding: isMobile ? "0 16px" : "0 32px", overflowX: "auto" }}>
         {["today", "month", "ai"].map(v => (
           <button key={v} onClick={() => setView(v)} style={{
-            background: "none", border: "none", padding: "16px 20px", cursor: "pointer",
-            fontSize: 14, fontWeight: 500,
+            background: "none", border: "none", padding: isMobile ? "12px 12px" : "16px 20px", cursor: "pointer",
+            fontSize: isMobile ? 12 : 14, fontWeight: 500,
             color: view === v ? text : muted,
             borderBottom: view === v ? `3px solid ${accent}` : "3px solid transparent",
             marginBottom: -1,
-            transition: "color 0.2s"
+            transition: "color 0.2s",
+            whiteSpace: "nowrap"
           }}>{v === "ai" ? "AI Tips" : v.charAt(0).toUpperCase() + v.slice(1)}</button>
         ))}
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 32px 0" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: isMobile ? "16px 16px 0" : "32px 32px 0" }}>
 
         {dataLoading && <div style={{ textAlign: "center", color: muted, padding: "40px 0", fontSize: 13 }}>Loading your data...</div>}
 
         {/* TODAY */}
         {!dataLoading && view === "today" && <>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
-            <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: "24px 28px" }}>
-              <div style={{ fontSize: 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Today's Progress</div>
-              <div style={{ fontSize: 48, fontWeight: 700, marginTop: 12, letterSpacing: "-1px" }}>{todayDone}/{habits.length}</div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 20, marginBottom: isMobile ? 20 : 32 }}>
+            <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px" }}>
+              <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Today's Progress</div>
+              <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px" }}>{todayDone}/{habits.length}</div>
             </div>
-            <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: "24px 28px" }}>
-              <div style={{ fontSize: 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Completion</div>
-              <div style={{ fontSize: 48, fontWeight: 700, marginTop: 12, letterSpacing: "-1px", color: accent }}>{habits.length ? Math.round((todayDone / habits.length) * 100) : 0}%</div>
+            <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px" }}>
+              <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Completion</div>
+              <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px", color: accent }}>{habits.length ? Math.round((todayDone / habits.length) * 100) : 0}%</div>
             </div>
           </div>
-          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: "24px 28px", marginBottom: 32 }}>
-            <div style={{ fontSize: 13, color: muted, fontWeight: 500, marginBottom: 16, letterSpacing: "0.5px", textTransform: "uppercase" }}>Overall Progress</div>
+          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px", marginBottom: isMobile ? 20 : 32 }}>
+            <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, marginBottom: isMobile ? 12 : 16, letterSpacing: "0.5px", textTransform: "uppercase" }}>Overall Progress</div>
             <div style={{ height: 6, background: border, borderRadius: 3, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${habits.length ? (todayDone / habits.length) * 100 : 0}%`, background: accent, borderRadius: 3, transition: "width 0.4s" }}></div>
             </div>
           </div>
-          {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: "60px 32px", fontSize: 16 }}>No habits yet. Add your first one!</div>}
+          {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No habits yet. Add your first one!</div>}
           {habits.map(h => {
             const done = !!logs[h.id]?.[today], s = calcStreak(h.id, logs);
             return (
-              <div key={h.id} style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: "20px 24px", marginBottom: 16, display: "flex", alignItems: "center", gap: 16, transition: "all 0.2s" }}>
-                <button onClick={() => toggleLog(h.id, today)} style={{ width: 32, height: 32, borderRadius: "50%", border: `2.5px solid ${done ? h.color : border}`, background: done ? h.color : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-                  {done && <svg width="16" height="16" viewBox="0 0 14 14"><polyline points="2,7 6,11 12,3" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" /></svg>}
+              <div key={h.id} style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "12px 14px" : "20px 24px", marginBottom: isMobile ? 12 : 16, display: "flex", alignItems: "center", gap: isMobile ? 12 : 16, transition: "all 0.2s" }}>
+                <button onClick={() => toggleLog(h.id, today)} style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: "50%", border: `2.5px solid ${done ? h.color : border}`, background: done ? h.color : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+                  {done && <svg width={isMobile ? 14 : 16} height={isMobile ? 14 : 16} viewBox="0 0 14 14"><polyline points="2,7 6,11 12,3" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" /></svg>}
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 16, textDecoration: done ? "line-through" : "none", color: done ? muted : text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
-                  <div style={{ fontSize: 13, color: muted, marginTop: 4 }}>
-                    {h.reminder && <span style={{ marginRight: 14 }}>⏰ {h.reminder}</span>}
+                  <div style={{ fontWeight: 600, fontSize: isMobile ? 14 : 16, textDecoration: done ? "line-through" : "none", color: done ? muted : text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
+                  <div style={{ fontSize: isMobile ? 11 : 13, color: muted, marginTop: 2 }}>
+                    {h.reminder && <span style={{ marginRight: isMobile ? 8 : 14 }}>⏰ {h.reminder}</span>}
                     {s > 0 && <span style={{ color: h.color, fontWeight: 600 }}>🔥 {s} day streak</span>}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => openEdit(h)} style={{ background: "none", border: "none", cursor: "pointer", color: muted, fontSize: 13, fontWeight: 500, padding: "6px 12px", borderRadius: 6, transition: "all 0.2s" }}>Edit</button>
-                  <button onClick={() => deleteHabit(h.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e24b4a", fontSize: 13, fontWeight: 500, padding: "6px 12px", borderRadius: 6, transition: "all 0.2s" }}>Delete</button>
+                <div style={{ display: "flex", gap: isMobile ? 6 : 10, flexShrink: 0 }}>
+                  <button onClick={() => openEdit(h)} style={{ background: "none", border: "none", cursor: "pointer", color: muted, fontSize: isMobile ? 11 : 13, fontWeight: 500, padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 6, transition: "all 0.2s" }}>Edit</button>
+                  <button onClick={() => deleteHabit(h.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e24b4a", fontSize: isMobile ? 11 : 13, fontWeight: 500, padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 6, transition: "all 0.2s" }}>Del</button>
                 </div>
               </div>
             );
           })}
-          <button onClick={() => { setShowAdd(true); setEditHabit(null); setNewName(""); setNewReminder("08:00"); setNewColor(COLORS[0]); }} style={{ width: "100%", background: accent, border: "none", borderRadius: 12, padding: "16px 24px", cursor: "pointer", color: "#fff", fontSize: 15, fontWeight: 600, marginTop: 20, transition: "all 0.2s" }}>+ Add New Habit</button>
+          <button onClick={() => { setShowAdd(true); setEditHabit(null); setNewName(""); setNewReminder("08:00"); setNewColor(COLORS[0]); }} style={{ width: "100%", background: accent, border: "none", borderRadius: 12, padding: isMobile ? "14px 20px" : "16px 24px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 14 : 15, fontWeight: 600, marginTop: isMobile ? 16 : 20, transition: "all 0.2s" }}>+ Add New Habit</button>
         </>}
 
         {/* MONTH */}
         {!dataLoading && view === "month" && <>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-            <button onClick={prevMonth} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: "8px 16px", cursor: "pointer", color: text, fontSize: 18, fontWeight: 500, transition: "all 0.2s" }}>←</button>
-            <div style={{ fontWeight: 600, fontSize: 22, letterSpacing: "-0.5px" }}>{monthName}</div>
-            <button onClick={nextMonth} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: "8px 16px", cursor: "pointer", color: text, fontSize: 18, fontWeight: 500, transition: "all 0.2s" }}>→</button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isMobile ? 16 : 28 }}>
+            <button onClick={prevMonth} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", cursor: "pointer", color: text, fontSize: isMobile ? 14 : 18, fontWeight: 500, transition: "all 0.2s" }}>←</button>
+            <div style={{ fontWeight: 600, fontSize: isMobile ? 16 : 22, letterSpacing: "-0.5px" }}>{monthName}</div>
+            <button onClick={nextMonth} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", cursor: "pointer", color: text, fontSize: isMobile ? 14 : 18, fontWeight: 500, transition: "all 0.2s" }}>→</button>
           </div>
 
-          <div className="scrollable-table" style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, marginBottom: 32, overflowX: "auto" }}>
+          <div className="scrollable-table" style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, marginBottom: isMobile ? 20 : 32, overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", minWidth: "100%", width: "100%" }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", padding: "14px 16px", color: muted, fontWeight: 600, fontSize: 13, borderBottom: `1px solid ${border}`, position: "sticky", left: 0, background: card, zIndex: 2, minWidth: 140, whiteSpace: "nowrap" }}>Habit</th>
+                  <th style={{ textAlign: "left", padding: isMobile ? "10px 12px" : "14px 16px", color: muted, fontWeight: 600, fontSize: isMobile ? 11 : 13, borderBottom: `1px solid ${border}`, position: "sticky", left: 0, background: card, zIndex: 2, minWidth: isMobile ? 100 : 140, whiteSpace: "nowrap" }}>Habit</th>
                   {monthDays.map(d => {
                     const dt = new Date(d + "T00:00:00"), isToday = d === today;
                     return (
-                      <th key={d} style={{ padding: "12px 6px", minWidth: 28, textAlign: "center", borderBottom: `1px solid ${border}`, fontWeight: 500 }}>
-                        <div style={{ color: isToday ? accent : muted, fontSize: 11, fontWeight: 600 }}>{DAY_LABELS[dt.getDay()]}</div>
-                        <div style={{ color: isToday ? accent : text, fontSize: 12, fontWeight: isToday ? 700 : 600, marginTop: 2, background: isToday ? border : "transparent", padding: isToday ? "2px 4px" : "0", borderRadius: 4 }}>{dt.getDate()}</div>
+                      <th key={d} style={{ padding: isMobile ? "8px 4px" : "12px 6px", minWidth: isMobile ? 24 : 28, textAlign: "center", borderBottom: `1px solid ${border}`, fontWeight: 500 }}>
+                        <div style={{ color: isToday ? accent : muted, fontSize: isMobile ? 9 : 11, fontWeight: 600 }}>{DAY_LABELS[dt.getDay()]}</div>
+                        <div style={{ color: isToday ? accent : text, fontSize: isMobile ? 10 : 12, fontWeight: isToday ? 700 : 600, marginTop: 2, background: isToday ? border : "transparent", padding: isToday ? "2px 4px" : "0", borderRadius: 4 }}>{dt.getDate()}</div>
                       </th>
                     );
                   })}
@@ -388,18 +397,18 @@ export default function App() {
               <tbody>
                 {habits.map((h, hi) => (
                   <tr key={h.id} style={{ borderBottom: `1px solid ${border}` }}>
-                    <td style={{ padding: "14px 16px", position: "sticky", left: 0, background: card, zIndex: 1, maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: h.color, flexShrink: 0 }}></div>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: text, overflow: "hidden", textOverflow: "ellipsis" }}>{h.name}</span>
+                    <td style={{ padding: isMobile ? "10px 12px" : "14px 16px", position: "sticky", left: 0, background: card, zIndex: 1, maxWidth: isMobile ? 100 : 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: h.color, flexShrink: 0 }}></div>
+                        <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 500, color: text, overflow: "hidden", textOverflow: "ellipsis" }}>{h.name}</span>
                       </div>
                     </td>
                     {monthDays.map(d => {
                       const done = !!logs[h.id]?.[d], isFuture = d > today;
                       return (
-                        <td key={d} style={{ textAlign: "center", padding: "12px 6px" }}>
-                          <button onClick={() => !isFuture && toggleLog(h.id, d)} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${done ? h.color : border}`, background: done ? h.color : "transparent", cursor: isFuture ? "default" : "pointer", opacity: isFuture ? 0.3 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, transition: "all 0.2s" }}>
-                            {done && <svg width="10" height="10" viewBox="0 0 14 14"><polyline points="2,7 6,11 12,3" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" /></svg>}
+                        <td key={d} style={{ textAlign: "center", padding: isMobile ? "8px 4px" : "12px 6px" }}>
+                          <button onClick={() => !isFuture && toggleLog(h.id, d)} style={{ width: isMobile ? 18 : 20, height: isMobile ? 18 : 20, borderRadius: "50%", border: `2px solid ${done ? h.color : border}`, background: done ? h.color : "transparent", cursor: isFuture ? "default" : "pointer", opacity: isFuture ? 0.3 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, transition: "all 0.2s" }}>
+                            {done && <svg width={isMobile ? 8 : 10} height={isMobile ? 8 : 10} viewBox="0 0 14 14"><polyline points="2,7 6,11 12,3" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" /></svg>}
                           </button>
                         </td>
                       );
@@ -407,14 +416,14 @@ export default function App() {
                   </tr>
                 ))}
                 <tr>
-                  <td style={{ padding: "14px 16px", fontSize: 13, color: muted, fontWeight: 600, borderTop: `1px solid ${border}`, position: "sticky", left: 0, background: card, zIndex: 1, whiteSpace: "nowrap" }}>Daily Total</td>
+                  <td style={{ padding: isMobile ? "10px 12px" : "14px 16px", fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 600, borderTop: `1px solid ${border}`, position: "sticky", left: 0, background: card, zIndex: 1, whiteSpace: "nowrap" }}>Daily Total</td>
                   {monthDays.map(d => {
                     const isFuture = d > today, done = habits.filter(h => logs[h.id]?.[d]).length;
                     const pct = habits.length ? Math.round((done / habits.length) * 100) : 0;
-                    const barH = 36, fillH = Math.round((pct / 100) * barH);
+                    const barH = isMobile ? 28 : 36, fillH = Math.round((pct / 100) * barH);
                     return (
-                      <td key={d} style={{ textAlign: "center", padding: "12px 6px", borderTop: `1px solid ${border}` }}>
-                        <div title={`${pct}%`} style={{ width: 12, height: barH, background: cellBg, borderRadius: 3, display: "inline-flex", flexDirection: "column", justifyContent: "flex-end", overflow: "hidden", opacity: isFuture ? 0.3 : 1, margin: "0 auto" }}>
+                      <td key={d} style={{ textAlign: "center", padding: isMobile ? "8px 4px" : "12px 6px", borderTop: `1px solid ${border}` }}>
+                        <div title={`${pct}%`} style={{ width: isMobile ? 10 : 12, height: barH, background: cellBg, borderRadius: 3, display: "inline-flex", flexDirection: "column", justifyContent: "flex-end", overflow: "hidden", opacity: isFuture ? 0.3 : 1, margin: "0 auto" }}>
                           <div style={{ width: "100%", height: fillH, borderRadius: 2, background: pct === 100 ? "#1D9E75" : pct >= 60 ? accent : pct > 0 ? "#BA7517" : "transparent", transition: "height 0.3s" }}></div>
                         </div>
                       </td>
@@ -425,15 +434,15 @@ export default function App() {
             </table>
           </div>
 
-          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: "24px 28px", marginBottom: 16 }}>
-            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 20, letterSpacing: "-0.5px" }}>Monthly Summary</div>
-            {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: "24px 0", fontSize: 14 }}>No habits to summarize.</div>}
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px", marginBottom: 16 }}>
+            <div style={{ fontWeight: 600, fontSize: isMobile ? 14 : 16, marginBottom: isMobile ? 14 : 20, letterSpacing: "-0.5px" }}>Monthly Summary</div>
+            {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: isMobile ? "16px 0" : "24px 0", fontSize: isMobile ? 13 : 14 }}>No habits to summarize.</div>}
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: isMobile ? 13 : 14 }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${border}` }}>
-                  <th style={{ textAlign: "left", padding: "12px 0", color: muted, fontWeight: 600, fontSize: 13 }}>Habit</th>
-                  <th style={{ textAlign: "center", padding: "12px 12px", color: muted, fontWeight: 600, fontSize: 13 }}>Completions</th>
-                  <th style={{ textAlign: "right", padding: "12px 0", color: muted, fontWeight: 600, fontSize: 13 }}>Progress</th>
+                  <th style={{ textAlign: "left", padding: isMobile ? "10px 0" : "12px 0", color: muted, fontWeight: 600, fontSize: isMobile ? 11 : 13 }}>Habit</th>
+                  <th style={{ textAlign: "center", padding: isMobile ? "10px 8px" : "12px 12px", color: muted, fontWeight: 600, fontSize: isMobile ? 11 : 13 }}>Count</th>
+                  <th style={{ textAlign: "right", padding: isMobile ? "10px 0" : "12px 0", color: muted, fontWeight: 600, fontSize: isMobile ? 11 : 13 }}>Progress</th>
                 </tr>
               </thead>
               <tbody>
@@ -443,19 +452,19 @@ export default function App() {
                   const pct = elapsed ? Math.round((count / elapsed) * 100) : 0;
                   return (
                     <tr key={h.id} style={{ borderBottom: `1px solid ${border}` }}>
-                      <td style={{ padding: "14px 0" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: h.color, flexShrink: 0 }}></div>
-                          <span style={{ color: text, fontWeight: 500 }}>{h.name}</span>
+                      <td style={{ padding: isMobile ? "10px 0" : "14px 0" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: h.color, flexShrink: 0 }}></div>
+                          <span style={{ color: text, fontWeight: 500, fontSize: isMobile ? 12 : 14 }}>{h.name}</span>
                         </div>
                       </td>
-                      <td style={{ textAlign: "center", padding: "14px 12px", color: text, fontWeight: 600, fontSize: 15 }}>{count}</td>
-                      <td style={{ padding: "14px 0" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
-                          <div style={{ width: 70, height: 6, background: cellBg, borderRadius: 3, overflow: "hidden" }}>
+                      <td style={{ textAlign: "center", padding: isMobile ? "10px 8px" : "14px 12px", color: text, fontWeight: 600, fontSize: isMobile ? 13 : 15 }}>{count}</td>
+                      <td style={{ padding: isMobile ? "10px 0" : "14px 0" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, justifyContent: "flex-end" }}>
+                          <div style={{ width: isMobile ? 50 : 70, height: 5, background: cellBg, borderRadius: 3, overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${pct}%`, background: h.color, borderRadius: 3, transition: "width 0.3s" }}></div>
                           </div>
-                          <span style={{ color: muted, fontSize: 13, fontWeight: 600, minWidth: 35, textAlign: "right" }}>{pct}%</span>
+                          <span style={{ color: muted, fontSize: isMobile ? 11 : 13, fontWeight: 600, minWidth: isMobile ? 28 : 35, textAlign: "right" }}>{pct}%</span>
                         </div>
                       </td>
                     </tr>
@@ -468,49 +477,49 @@ export default function App() {
 
         {/* AI TIPS */}
         {!dataLoading && view === "ai" && <>
-          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: "28px 32px", marginBottom: 24 }}>
-            <div style={{ fontWeight: 600, fontSize: 20, marginBottom: 12, letterSpacing: "-0.5px" }}>Your Habit Coach</div>
-            <div style={{ fontSize: 15, color: muted, marginBottom: 20, lineHeight: 1.6 }}>Get personalized, AI-powered tips based on your habit data and progress patterns.</div>
-            <button onClick={getAiTip} disabled={aiLoading} style={{ background: accent, color: "#fff", border: "none", borderRadius: 8, padding: "12px 24px", cursor: aiLoading ? "not-allowed" : "pointer", fontSize: 15, fontWeight: 600, opacity: aiLoading ? 0.7 : 1, transition: "all 0.2s" }}>
+          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "20px 20px" : "28px 32px", marginBottom: isMobile ? 16 : 24 }}>
+            <div style={{ fontWeight: 600, fontSize: isMobile ? 16 : 20, marginBottom: isMobile ? 8 : 12, letterSpacing: "-0.5px" }}>Your Habit Coach</div>
+            <div style={{ fontSize: isMobile ? 13 : 15, color: muted, marginBottom: isMobile ? 16 : 20, lineHeight: 1.6 }}>Get personalized, AI-powered tips based on your habit data and progress patterns.</div>
+            <button onClick={getAiTip} disabled={aiLoading} style={{ background: accent, color: "#fff", border: "none", borderRadius: 8, padding: isMobile ? "10px 16px" : "12px 24px", cursor: aiLoading ? "not-allowed" : "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, opacity: aiLoading ? 0.7 : 1, transition: "all 0.2s" }}>
               {aiLoading ? "✨ Thinking..." : "✨ Get Tips"}
             </button>
           </div>
-          {aiError && <div style={{ color: "#e24b4a", fontSize: 14, marginBottom: 24, background: "rgba(226, 75, 74, 0.1)", padding: "16px 20px", borderRadius: 8, fontWeight: 500 }}>❌ {aiError}</div>}
+          {aiError && <div style={{ color: "#e24b4a", fontSize: isMobile ? 13 : 14, marginBottom: isMobile ? 16 : 24, background: "rgba(226, 75, 74, 0.1)", padding: isMobile ? "12px 16px" : "16px 20px", borderRadius: 8, fontWeight: 500 }}>❌ {aiError}</div>}
           {aiTip && (
-            <div style={{ background: card, borderRadius: 12, border: `1px solid ${accent}`, padding: "28px 32px", marginBottom: 24 }}>
-              <div style={{ fontSize: 12, color: accent, fontWeight: 700, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.8px" }}>💡 Coach's Advice</div>
-              <div style={{ fontSize: 15, color: text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{aiTip}</div>
+            <div style={{ background: card, borderRadius: 12, border: `1px solid ${accent}`, padding: isMobile ? "20px 20px" : "28px 32px", marginBottom: isMobile ? 16 : 24 }}>
+              <div style={{ fontSize: isMobile ? 10 : 12, color: accent, fontWeight: 700, marginBottom: isMobile ? 8 : 12, textTransform: "uppercase", letterSpacing: "0.8px" }}>💡 Coach's Advice</div>
+              <div style={{ fontSize: isMobile ? 13 : 15, color: text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{aiTip}</div>
             </div>
           )}
-          {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: "40px 32px", fontSize: 15 }}>Add some habits first to get personalized coaching tips!</div>}
+          {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: isMobile ? "30px 20px" : "40px 32px", fontSize: isMobile ? 14 : 15 }}>Add some habits first to get personalized coaching tips!</div>}
         </>}
       </div>
 
       {/* Add/Edit Modal */}
       {showAdd && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setEditHabit(null); } }}>
-          <div style={{ background: card, borderRadius: "16px 16px 0 0", padding: "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto" }}>
-            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 8, letterSpacing: "-0.5px" }}>{editHabit ? "Edit Habit" : "Create New Habit"}</div>
-            <div style={{ fontSize: 14, color: muted, marginBottom: 28 }}>Set up a habit to track daily</div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 13, color: muted, marginBottom: 8, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Habit Name</label>
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g., Meditate for 10 minutes" style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: 14, boxSizing: "border-box", fontWeight: 500 }} onKeyDown={e => e.key === "Enter" && addHabit()} />
+          <div style={{ background: card, borderRadius: isMobile ? "16px 16px 0 0" : "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>{editHabit ? "Edit Habit" : "Create New Habit"}</div>
+            <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Set up a habit to track daily</div>
+            <div style={{ marginBottom: isMobile ? 16 : 20 }}>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Habit Name</label>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g., Meditate for 10 minutes" style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500 }} onKeyDown={e => e.key === "Enter" && addHabit()} />
             </div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 13, color: muted, marginBottom: 8, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Daily Reminder Time</label>
-              <input type="time" value={newReminder} onChange={e => setNewReminder(e.target.value)} style={{ padding: "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: 14, width: "100%", boxSizing: "border-box", fontWeight: 500 }} />
+            <div style={{ marginBottom: isMobile ? 16 : 20 }}>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Daily Reminder Time</label>
+              <input type="time" value={newReminder} onChange={e => setNewReminder(e.target.value)} style={{ padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, width: "100%", boxSizing: "border-box", fontWeight: 500 }} />
             </div>
-            <div style={{ marginBottom: 28 }}>
-              <label style={{ fontSize: 13, color: muted, marginBottom: 12, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Habit Color</label>
-              <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ marginBottom: isMobile ? 20 : 28 }}>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: isMobile ? 8 : 12, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Habit Color</label>
+              <div style={{ display: "flex", gap: isMobile ? 10 : 12, flexWrap: "wrap" }}>
                 {COLORS.map(c => (
-                  <button key={c} onClick={() => setNewColor(c)} style={{ width: 32, height: 32, borderRadius: "50%", background: c, border: `3px solid ${newColor === c ? text : "transparent"}`, cursor: "pointer", transition: "all 0.2s" }} title="Select color"></button>
+                  <button key={c} onClick={() => setNewColor(c)} style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: "50%", background: c, border: `3px solid ${newColor === c ? text : "transparent"}`, cursor: "pointer", transition: "all 0.2s" }} title="Select color"></button>
                 ))}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
-              <button onClick={() => { setShowAdd(false); setEditHabit(null); }} style={{ flex: 1, padding: "14px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "none", color: text, cursor: "pointer", fontSize: 15, fontWeight: 600, transition: "all 0.2s" }}>Cancel</button>
-              <button onClick={addHabit} style={{ flex: 1.2, padding: "14px 16px", borderRadius: 8, border: "none", background: accent, color: "#fff", cursor: "pointer", fontSize: 15, fontWeight: 600, transition: "all 0.2s" }}>{editHabit ? "Save Changes" : "Create Habit"}</button>
+            <div style={{ display: "flex", gap: isMobile ? 10 : 12 }}>
+              <button onClick={() => { setShowAdd(false); setEditHabit(null); }} style={{ flex: 1, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "none", color: text, cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>Cancel</button>
+              <button onClick={addHabit} style={{ flex: 1.2, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: "none", background: accent, color: "#fff", cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>{editHabit ? "Save Changes" : "Create Habit"}</button>
             </div>
           </div>
         </div>
