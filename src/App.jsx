@@ -102,8 +102,8 @@ export default function App() {
       });
       // Add default habits for new users
       const defaultHabits = [
-        { user_id: uid, name: "5 prayers", reminder: "08:00", color: COLORS[0], created_at: today },
-        { user_id: uid, name: "Wake up at 5:00 ⏰", reminder: "05:00", color: COLORS[1], created_at: today }
+        { user_id: uid, name: "5 prayers", color: COLORS[0], created_at: today },
+        { user_id: uid, name: "Wake up at 5:00 ⏰", color: COLORS[1], created_at: today }
       ];
       for (const habit of defaultHabits) {
         await api("habits", { method: "POST", _token: tok, prefer: "return=minimal", body: JSON.stringify(habit) });
@@ -216,17 +216,17 @@ export default function App() {
   const addHabit = async () => {
     if (!newName.trim()) return;
     if (editHabit) {
-      const updated = { name: newName, reminder: newReminder, color: newColor };
+      const updated = { name: newName, color: newColor };
       setHabits(h => h.map(x => x.id === editHabit ? { ...x, ...updated } : x));
       await api(`habits?id=eq.${editHabit}`, { method: "PATCH", _token: token.current, prefer: "return=minimal", body: JSON.stringify(updated) });
       setEditHabit(null);
     } else {
-      const newH = { user_id: session.user.id, name: newName, reminder: newReminder, color: newColor, created_at: today };
+      const newH = { user_id: session.user.id, name: newName, color: newColor, created_at: today };
       const res = await api("habits", { method: "POST", _token: token.current, prefer: "return=representation", headers: { "Accept": "application/json" }, body: JSON.stringify(newH) });
       const data = await res.json();
       setHabits(h => [...h, ...data]);
     }
-    setNewName(""); setNewReminder("08:00"); setNewColor(COLORS[0]); setShowAdd(false);
+    setNewName(""); setNewColor(COLORS[0]); setShowAdd(false);
   };
 
   const deleteHabit = async id => {
@@ -236,7 +236,7 @@ export default function App() {
     await api(`habits?id=eq.${id}`, { method: "DELETE", _token: token.current });
   };
 
-  const openEdit = h => { setEditHabit(h.id); setNewName(h.name); setNewReminder(h.reminder || "08:00"); setNewColor(h.color); setShowAdd(true); };
+  const openEdit = h => { setEditHabit(h.id); setNewName(h.name); setNewColor(h.color); setShowAdd(true); };
 
   const addNote = async () => {
     if (!noteContent.trim()) return;
@@ -388,7 +388,6 @@ export default function App() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: isMobile ? 14 : 16, textDecoration: done ? "line-through" : "none", color: done ? muted : text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
                   <div style={{ fontSize: isMobile ? 11 : 13, color: muted, marginTop: 2 }}>
-                    {h.reminder && <span style={{ marginRight: isMobile ? 8 : 14 }}>⏰ {h.reminder}</span>}
                     {s > 0 && <span style={{ color: h.color, fontWeight: 600 }}>🔥 {s} day streak</span>}
                   </div>
                 </div>
@@ -399,7 +398,7 @@ export default function App() {
               </div>
             );
           })}
-          <button onClick={() => { setShowAdd(true); setEditHabit(null); setNewName(""); setNewReminder("08:00"); setNewColor(COLORS[0]); }} style={{ width: "100%", background: accent, border: "none", borderRadius: 12, padding: isMobile ? "14px 20px" : "16px 24px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 14 : 15, fontWeight: 600, marginTop: isMobile ? 16 : 20, transition: "all 0.2s" }}>+ Add New Habit</button>
+          <button onClick={() => { setShowAdd(true); setEditHabit(null); setNewName(""); setNewColor(COLORS[0]); }} style={{ width: "100%", background: accent, border: "none", borderRadius: 12, padding: isMobile ? "14px 20px" : "16px 24px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 14 : 15, fontWeight: 600, marginTop: isMobile ? 16 : 20, transition: "all 0.2s" }}>+ Add New Habit</button>
         </>}
 
         {/* MONTH */}
@@ -562,13 +561,17 @@ export default function App() {
 
       {/* Add Note Modal */}
       {showAddNote && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddNote(false); }}>
-          <div style={{ background: card, borderRadius: isMobile ? "16px 16px 0 0" : "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddNote(false); }}>
+          <div style={{ background: card, borderRadius: "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto", margin: isMobile ? "0 16px" : "0" }}>
             <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>Add Note</div>
             <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Write something on your mind</div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
               <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Note</label>
               <textarea value={noteContent} onChange={e => setNoteContent(e.target.value)} placeholder="Type your note here..." style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500, fontFamily: "inherit", minHeight: 120, resize: "none" }} />
+            </div>
+            <div style={{ marginBottom: isMobile ? 20 : 28 }}>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Date</label>
+              <input type="date" value={noteDate} onChange={e => setNoteDate(e.target.value)} style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500 }} />
             </div>
             <div style={{ display: "flex", gap: isMobile ? 10 : 12 }}>
               <button onClick={() => setShowAddNote(false)} style={{ flex: 1, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "none", color: text, cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>Cancel</button>
@@ -580,8 +583,8 @@ export default function App() {
 
       {/* Add/Edit Modal */}
       {showAdd && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setEditHabit(null); } }}>
-          <div style={{ background: card, borderRadius: isMobile ? "16px 16px 0 0" : "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setEditHabit(null); } }}>
+          <div style={{ background: card, borderRadius: "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto", margin: isMobile ? "0 16px" : "0" }}>
             <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>{editHabit ? "Edit Habit" : "Create New Habit"}</div>
             <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Set up a habit to track daily</div>
             <div style={{ marginBottom: isMobile ? 16 : 20 }}>
@@ -589,7 +592,7 @@ export default function App() {
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g., Meditate for 10 minutes" style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500 }} onKeyDown={e => e.key === "Enter" && addHabit()} />
             </div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
-              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: isMobile ? 8 : 12, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Habit Color</label>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: isMobile ? 8 : 12, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Color</label>
               <div style={{ display: "flex", gap: isMobile ? 10 : 12, flexWrap: "wrap" }}>
                 {COLORS.map(c => (
                   <button key={c} onClick={() => setNewColor(c)} style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: "50%", background: c, border: `3px solid ${newColor === c ? text : "transparent"}`, cursor: "pointer", transition: "all 0.2s" }} title="Select color"></button>
