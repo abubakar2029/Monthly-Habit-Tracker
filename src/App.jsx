@@ -221,7 +221,11 @@ export default function App() {
     const summary = habits.map(h => `${h.name}: ${calcStreak(h.id, logs)}-day streak`).join("\n");
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", 
+        headers: { 
+          "Content-Type": "application/json",
+          "x-api-key": process.env.REACT_APP_ANTHROPIC_API_KEY || ""
+        },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514", max_tokens: 1000,
           system: "You are a supportive habit coach. Give 2-3 short, encouraging, actionable tips. Be warm and specific. Under 120 words.",
@@ -230,7 +234,10 @@ export default function App() {
       });
       const data = await res.json();
       setAiTip(data.content?.[0]?.text || "No tips returned.");
-    } catch { setAiError("Could not load AI tips. Please try again."); }
+    } catch (e) { 
+      console.error("AI tip error:", e);
+      setAiError("Could not load AI tips. Please try again."); 
+    }
     setAiLoading(false);
   };
 
