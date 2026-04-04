@@ -39,15 +39,7 @@ function getDaysInMonth(year, month) {
   return days;
 }
 
-function calcStreak(habitId, logs) {
-  let count = 0, d = new Date();
-  // Count consecutive days from today backwards
-  while (true) {
-    const key = toYMDate(d);
-    if (logs[habitId]?.[key]) { count++; d.setDate(d.getDate() - 1); } else break;
-  }
-  return count;
-}
+
 function loadTheme() { try { return localStorage.getItem("ht_theme") === "dark"; } catch { return window.matchMedia("(prefers-color-scheme: dark)").matches; } }
 function saveTheme(dark) { try { localStorage.setItem("ht_theme", dark ? "dark" : "light"); } catch { } }
 
