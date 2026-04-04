@@ -299,7 +299,7 @@ export default function App() {
   );
 
   if (!session) return (
-    <div style={{ background: bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: isMobile ? "flex-start" : "center", padding: isMobile ? 0 : 24, paddingTop: isMobile ? 80 : 0 }}>
+    <div style={{ background: bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: isMobile ? "flex-start" : "center", padding: isMobile ? "20px 16px" : 24, paddingTop: isMobile ? 80 : 0 }}>
       <div style={{ background: isMobile ? "transparent" : card, borderRadius: isMobile ? 0 : 20, border: isMobile ? "none" : `1px solid ${border}`, padding: isMobile ? "40px 20px 60px" : "48px 40px", maxWidth: isMobile ? "100%" : 380, width: "100%", textAlign: "center", boxShadow: dark || isMobile ? "none" : "0 2px 12px rgba(0,0,0,0.04)" }}>
         <div style={{ fontSize: isMobile ? 56 : 48, marginBottom: isMobile ? 20 : 16 }}>✅</div>
         <div style={{ fontWeight: 700, fontSize: isMobile ? 28 : 26, color: text, marginBottom: isMobile ? 16 : 12, letterSpacing: "-0.5px" }}>Habit Tracker</div>
@@ -566,10 +566,6 @@ export default function App() {
           <div style={{ background: card, borderRadius: isMobile ? "16px 16px 0 0" : "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto" }}>
             <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>Add Note</div>
             <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Write something on your mind</div>
-            <div style={{ marginBottom: isMobile ? 16 : 20 }}>
-              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Date</label>
-              <input type="date" value={noteDate} onChange={e => setNoteDate(e.target.value)} style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500 }} />
-            </div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
               <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Note</label>
               <textarea value={noteContent} onChange={e => setNoteContent(e.target.value)} placeholder="Type your note here..." style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500, fontFamily: "inherit", minHeight: 120, resize: "none" }} />
@@ -591,10 +587,6 @@ export default function App() {
             <div style={{ marginBottom: isMobile ? 16 : 20 }}>
               <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Habit Name</label>
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g., Meditate for 10 minutes" style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500 }} onKeyDown={e => e.key === "Enter" && addHabit()} />
-            </div>
-            <div style={{ marginBottom: isMobile ? 16 : 20 }}>
-              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Daily Reminder Time</label>
-              <input type="time" value={newReminder} onChange={e => setNewReminder(e.target.value)} style={{ padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, width: "100%", boxSizing: "border-box", fontWeight: 500 }} />
             </div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
               <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: isMobile ? 8 : 12, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Habit Color</label>
