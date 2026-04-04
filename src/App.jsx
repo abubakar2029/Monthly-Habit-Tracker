@@ -44,7 +44,6 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [editHabit, setEditHabit] = useState(null);
   const [newName, setNewName] = useState("");
-  const [newReminder, setNewReminder] = useState("08:00");
   const [newColor, setNewColor] = useState(COLORS[0]);
   const [notes, setNotes] = useState([]);
   const [showAddNote, setShowAddNote] = useState(false);
@@ -316,7 +315,7 @@ export default function App() {
     </div>
   );
 
-  // ── Main App ──────────────────────────────────────────
+  // ── Main App ───────────────────────────────────��──────
   const userInitial = (session.user.email || "U")[0].toUpperCase();
 
   return (
@@ -387,9 +386,7 @@ export default function App() {
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: isMobile ? 14 : 16, textDecoration: done ? "line-through" : "none", color: done ? muted : text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
-                  <div style={{ fontSize: isMobile ? 11 : 13, color: muted, marginTop: 2 }}>
-                    {s > 0 && <span style={{ color: h.color, fontWeight: 600 }}>🔥 {s} day streak</span>}
-                  </div>
+                  <div style={{ fontSize: isMobile ? 11 : 13, color: h.color, marginTop: 2, fontWeight: 600 }}>🔥 {s} day{s !== 1 ? "s" : ""} streak</div>
                 </div>
                 <div style={{ display: "flex", gap: isMobile ? 6 : 10, flexShrink: 0 }}>
                   <button onClick={() => openEdit(h)} style={{ background: "none", border: "none", cursor: "pointer", color: muted, fontSize: isMobile ? 11 : 13, fontWeight: 500, padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 6, transition: "all 0.2s" }}>Edit</button>
@@ -518,10 +515,13 @@ export default function App() {
           {notes.length === 0 ? (
             <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No notes yet. Start writing!</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(320px, 1fr))", gap: isMobile ? 14 : 18 }}>
               {notes.map(note => {
                 const noteDateTime = new Date(note.date + "T00:00:00");
-                const dateStr = noteDateTime.toLocaleDateString("en-US", { month: "short", day: "numeric", year: noteDateTime.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined });
+                const day = String(noteDateTime.getDate()).padStart(2, "0");
+                const monthName = noteDateTime.toLocaleDateString("en-US", { month: "long" });
+                const year = noteDateTime.getFullYear();
+                const dateStr = `${day} / ${monthName} / ${year}`;
                 return (
                   <div
                     key={note.id}
@@ -532,22 +532,24 @@ export default function App() {
                     onMouseLeave={handleNoteLongPressEnd}
                     style={{
                       background: card,
-                      borderRadius: 10,
+                      borderRadius: 14,
                       border: `1px solid ${border}`,
-                      padding: isMobile ? "14px 16px" : "16px 20px",
+                      padding: isMobile ? "20px 18px" : "24px 22px",
                       position: "relative",
-                      transition: "all 0.2s"
+                      transition: "all 0.2s",
+                      display: "flex",
+                      flexDirection: "column",
+                      minHeight: 200,
+                      hover: { borderColor: accent }
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: isMobile ? 11 : 12, color: accent, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.4px" }}>{dateStr}</div>
-                        <div style={{ fontSize: isMobile ? 13 : 14, color: text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{note.content}</div>
-                      </div>
-                      {!isMobile && <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: muted, fontSize: 18, cursor: "pointer", padding: "4px 8px", transition: "color 0.2s" }} title="Delete">×</button>}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 12 }}>
+                      <div style={{ fontSize: isMobile ? 12 : 13, color: muted, fontWeight: 600, letterSpacing: "0.6px", opacity: 0.75 }}>{dateStr}</div>
+                      <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: muted, fontSize: isMobile ? 16 : 18, cursor: "pointer", padding: "2px 4px", transition: "color 0.2s", flexShrink: 0, opacity: 0.6, hover: { opacity: 1 } }} title="Delete note">×</button>
                     </div>
+                    <div style={{ fontSize: isMobile ? 14 : 15, color: text, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", flex: 1, fontWeight: 400 }}>{note.content}</div>
                     {isMobile && longPressNote === note.id && (
-                      <div style={{ position: "absolute", bottom: -50, left: 0, right: 0, height: 50, background: "rgba(226, 75, 74, 0.9)", borderRadius: "0 0 10px 10px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => deleteNote(note.id)}>
+                      <div style={{ position: "absolute", bottom: -50, left: 0, right: 0, height: 50, background: "rgba(226, 75, 74, 0.9)", borderRadius: "0 0 14px 14px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => deleteNote(note.id)}>
                         <div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>Delete</div>
                       </div>
                     )}
