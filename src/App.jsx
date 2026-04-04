@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-const SUPABASE_URL = "https://erhpdewgxthnvovkvpmf.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaHBkZXdneHRobnZvdmt2cG1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NTAwNzYsImV4cCI6MjA5MDUyNjA3Nn0.XLAMCY_xdjsRRtuC9AM2-ijBNPqdeAOo1UXHbqFdPxk";
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 const COLORS = ["#7F77DD", "#1D9E75", "#D85A30", "#378ADD", "#D4537E", "#BA7517", "#639922"];
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -16,33 +16,34 @@ const api = (path, opts = {}) => fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
   }
 });
 
-function getToday() { return new Date().toISOString().split("T")[0]; }
-// function genId() { return "h" + Date.now(); }  
+function toYMDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getToday() {
+  // return new Date().toISOString().split("T")[0]; 
+  return toYMDate(new Date());
+}
 function getDaysInMonth(year, month) {
   const days = [];
-  const firstDay = new Date(year, month, 1);
-  const startDay = firstDay.getDay(); // 0 = Sunday, 6 = Saturday
-
-  // Add padding days from previous month
-  for (let i = startDay - 1; i >= 0; i--) {
-    const padDate = new Date(year, month, -i);
-    days.push(padDate.toISOString().split("T")[0]);
-  }
-
-  // Add days of current month
   const d = new Date(year, month, 1);
+
   while (d.getMonth() === month) {
-    days.push(d.toISOString().split("T")[0]);
+    days.push(toYMDate(d));
     d.setDate(d.getDate() + 1);
   }
 
   return days;
 }
+
 function calcStreak(habitId, logs) {
   let count = 0, d = new Date();
   // Count consecutive days from today backwards
   while (true) {
-    const key = d.toISOString().split("T")[0];
+    const key = toYMDate(d);
     if (logs[habitId]?.[key]) { count++; d.setDate(d.getDate() - 1); } else break;
   }
   return count;
@@ -588,7 +589,7 @@ export default function App() {
             </div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
               <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Date</label>
-              <div style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, fontWeight: 500 }}>
+              <div style={{ width: "90%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, fontWeight: 500 }}>
                 {new Date(today + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </div>
             </div>
