@@ -23,8 +23,15 @@ function getDaysInMonth(year, month) {
   while (d.getMonth() === month) { days.push(d.toISOString().split("T")[0]); d.setDate(d.getDate() + 1); }
   return days;
 }
-function calcStreak(habitId, logs) {
+function calcStreak(habitId, logs, today) {
   let count = 0, d = new Date();
+  d.setDate(d.getDate());
+  
+  // First check if today is logged
+  const todayKey = today;
+  if (!logs[habitId]?.[todayKey]) return 0;
+  
+  // Count consecutive days from today backwards
   while (true) {
     const key = d.toISOString().split("T")[0];
     if (logs[habitId]?.[key]) { count++; d.setDate(d.getDate() - 1); } else break;
@@ -378,7 +385,7 @@ export default function App() {
           </div>
           {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No habits yet. Add your first one!</div>}
           {habits.map(h => {
-            const done = !!logs[h.id]?.[today], s = calcStreak(h.id, logs);
+            const done = !!logs[h.id]?.[today], s = calcStreak(h.id, logs, today);
             return (
               <div key={h.id} style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "12px 14px" : "20px 24px", marginBottom: isMobile ? 8 : 12, display: "flex", alignItems: "center", gap: isMobile ? 12 : 16, transition: "all 0.2s" }}>
                 <button onClick={() => toggleLog(h.id, today)} style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: "50%", border: `2.5px solid ${done ? h.color : border}`, background: done ? h.color : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
@@ -386,7 +393,7 @@ export default function App() {
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: isMobile ? 14 : 16, textDecoration: done ? "line-through" : "none", color: done ? muted : text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
-                  <div style={{ fontSize: isMobile ? 11 : 13, color: h.color, marginTop: 2, fontWeight: 600 }}>🔥 {s} day{s !== 1 ? "s" : ""} streak</div>
+                  {s > 0 && <div style={{ fontSize: isMobile ? 11 : 13, color: h.color, marginTop: 2, fontWeight: 600 }}>🔥 {s} day{s !== 1 ? "s" : ""} streak</div>}
                 </div>
                 <div style={{ display: "flex", gap: isMobile ? 6 : 10, flexShrink: 0 }}>
                   <button onClick={() => openEdit(h)} style={{ background: "none", border: "none", cursor: "pointer", color: muted, fontSize: isMobile ? 11 : 13, fontWeight: 500, padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 6, transition: "all 0.2s" }}>Edit</button>
@@ -534,17 +541,16 @@ export default function App() {
                       background: card,
                       borderRadius: 14,
                       border: `1px solid ${border}`,
-                      padding: isMobile ? "20px 18px" : "24px 22px",
+                      padding: isMobile ? "14px 14px" : "16px 18px",
                       position: "relative",
                       transition: "all 0.2s",
                       display: "flex",
                       flexDirection: "column",
-                      minHeight: 200,
                       hover: { borderColor: accent }
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 12 }}>
-                      <div style={{ fontSize: isMobile ? 12 : 13, color: muted, fontWeight: 600, letterSpacing: "0.6px", opacity: 0.75 }}>{dateStr}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
+                      <div style={{ fontSize: isMobile ? 11 : 12, color: muted, fontWeight: 600, letterSpacing: "0.6px", opacity: 0.65 }}>{dateStr}</div>
                       <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: muted, fontSize: isMobile ? 16 : 18, cursor: "pointer", padding: "2px 4px", transition: "color 0.2s", flexShrink: 0, opacity: 0.6, hover: { opacity: 1 } }} title="Delete note">×</button>
                     </div>
                     <div style={{ fontSize: isMobile ? 14 : 15, color: text, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", flex: 1, fontWeight: 400 }}>{note.content}</div>
