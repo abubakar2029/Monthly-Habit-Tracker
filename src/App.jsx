@@ -46,10 +46,13 @@ export default function App() {
   const [newName, setNewName] = useState("");
   const [newReminder, setNewReminder] = useState("08:00");
   const [newColor, setNewColor] = useState(COLORS[0]);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiTip, setAiTip] = useState("");
-  const [aiError, setAiError] = useState("");
+  const [notes, setNotes] = useState([]);
+  const [showAddNote, setShowAddNote] = useState(false);
+  const [noteContent, setNoteContent] = useState("");
+  const [noteDate, setNoteDate] = useState(getToday());
   const [dataLoading, setDataLoading] = useState(false);
+  const [longPressNote, setLongPressNote] = useState(null);
+  const longPressTimer = useRef(null);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   const now = new Date();
   const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
@@ -67,12 +70,14 @@ export default function App() {
   const loadData = useCallback(async (tok, uid) => {
     setDataLoading(true);
     try {
-      const [hRes, lRes] = await Promise.all([
+      const [hRes, lRes, nRes] = await Promise.all([
         api(`habits?user_id=eq.${uid}&order=created_at.asc`, { _token: tok, headers: { "Accept": "application/json" } }),
-        api(`habit_logs?user_id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } })
+        api(`habit_logs?user_id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } }),
+        api(`notes?user_id=eq.${uid}&order=date.desc`, { _token: tok, headers: { "Accept": "application/json" } })
       ]);
       const habitsData = await hRes.json();
       const logsData = await lRes.json();
+      const notesData = await nRes.json();
       setHabits(Array.isArray(habitsData) ? habitsData : []);
       const logsMap = {};
       if (Array.isArray(logsData)) {
@@ -82,6 +87,7 @@ export default function App() {
         });
       }
       setLogs(logsMap);
+      setNotes(Array.isArray(notesData) ? notesData : []);
     } catch (e) { console.error(e); }
     setDataLoading(false);
   }, []); // Add dependencies if any
@@ -94,6 +100,14 @@ export default function App() {
         method: "POST", _token: tok, prefer: "return=minimal",
         body: JSON.stringify({ id: uid, email, theme: dark ? "dark" : "light" })
       });
+      // Add default habits for new users
+      const defaultHabits = [
+        { user_id: uid, name: "5 prayers", reminder: "08:00", color: COLORS[0], created_at: today },
+        { user_id: uid, name: "Wake up at 5:00 ⏰", reminder: "05:00", color: COLORS[1], created_at: today }
+      ];
+      for (const habit of defaultHabits) {
+        await api("habits", { method: "POST", _token: tok, prefer: "return=minimal", body: JSON.stringify(habit) });
+      }
     } else {
       const savedTheme = data[0].theme;
       if (savedTheme) { setDark(savedTheme === "dark"); saveTheme(savedTheme === "dark"); }
@@ -181,7 +195,7 @@ export default function App() {
     }
   }, [dark, session]);
 
-  // ── Habits CRUD ───────────────────────────────────────
+  // ── Habits CRUD ───────���───────────────────────────────
   const toggleLog = async (habitId, date) => {
     const done = !!logs[habitId]?.[date];
     setLogs(prev => {
@@ -224,22 +238,43 @@ export default function App() {
 
   const openEdit = h => { setEditHabit(h.id); setNewName(h.name); setNewReminder(h.reminder || "08:00"); setNewColor(h.color); setShowAdd(true); };
 
-  const getAiTip = async () => {
-    setAiLoading(true); setAiTip(""); setAiError("");
-    const summary = habits.map(h => `${h.name}: ${calcStreak(h.id, logs)}-day streak`).join("\n");
+  const addNote = async () => {
+    if (!noteContent.trim()) return;
+    const newNote = { user_id: session.user.id, content: noteContent, date: noteDate };
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1000,
-          system: "You are a supportive habit coach. Give 2-3 short, encouraging, actionable tips. Be warm and specific. Under 120 words.",
-          messages: [{ role: "user", content: `My habits:\n${summary}\nGive me personalized tips.` }]
-        })
+      await api("notes", {
+        method: "POST", _token: token.current, prefer: "return=minimal",
+        body: JSON.stringify(newNote)
       });
-      const data = await res.json();
-      setAiTip(data.content?.[0]?.text || "No tips returned.");
-    } catch { setAiError("Could not load AI tips. Please try again."); }
-    setAiLoading(false);
+      const updatedNotes = await api(`notes?user_id=eq.${session.user.id}&order=date.desc`, { _token: token.current, headers: { "Accept": "application/json" } });
+      const data = await updatedNotes.json();
+      setNotes(Array.isArray(data) ? data : []);
+      setNoteContent("");
+      setNoteDate(getToday());
+      setShowAddNote(false);
+    } catch (e) { console.error(e); }
+  };
+
+  const deleteNote = async (id) => {
+    try {
+      await api(`notes?id=eq.${id}`, { method: "DELETE", _token: token.current });
+      setNotes(n => n.filter(note => note.id !== id));
+      setLongPressNote(null);
+    } catch (e) { console.error(e); }
+  };
+
+  const handleNoteLongPress = (noteId) => {
+    setLongPressNote(noteId);
+  };
+
+  const handleNoteLongPressStart = (noteId) => {
+    longPressTimer.current = setTimeout(() => {
+      setLongPressNote(noteId);
+    }, 500);
+  };
+
+  const handleNoteLongPressEnd = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
   // ── Theme tokens ──────────────────────────────────────
@@ -274,11 +309,11 @@ export default function App() {
         <div style={{ fontSize: isMobile ? 15 : 15, color: muted, marginBottom: isMobile ? 40 : 36, lineHeight: 1.7, maxWidth: isMobile ? "100%" : "320px" }}>Build lasting habits, track daily progress, and get personalized AI coaching to achieve your goals.</div>
         <button onClick={signInWithGoogle} style={{
           width: "100%", padding: isMobile ? "16px 20px" : "14px 20px", borderRadius: isMobile ? 12 : 10, border: isMobile ? "none" : `1px solid ${border}`,
-          background: isMobile ? accent : card, color: isMobile ? "#fff" : text, fontSize: isMobile ? 16 : 15, fontWeight: 600, cursor: "pointer",
+          background: isMobile ? accent : card, color: isMobile ? "#fff" : text, fontSize: isMobile ? 14 : 15, fontWeight: 600, cursor: "pointer",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 12, transition: "all 0.2s", boxShadow: isMobile ? "0 4px 12px rgba(107, 92, 255, 0.3)" : "none"
         }}>
           <svg width={isMobile ? 20 : 18} height={isMobile ? 20 : 18} viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill={isMobile ? "#fff" : "#4285F4"} /><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill={isMobile ? "#fff" : "#34A853"} /><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill={isMobile ? "#fff" : "#FBBC05"} /><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill={isMobile ? "#fff" : "#EA4335"} /></svg>
-          {isMobile ? "Sign in with Google" : "Continue with Google"}
+          {isMobile ? "Continue with Google" : "Continue with Google"}
         </button>
       </div>
     </div>
@@ -310,7 +345,7 @@ export default function App() {
 
       {/* Nav */}
       <div style={{ display: "flex", borderBottom: `1px solid ${border}`, background: card, padding: isMobile ? "0 16px" : "0 32px", overflowX: "auto" }}>
-        {["today", "month", "ai"].map(v => (
+        {["today", "month", "notes"].map(v => (
           <button key={v} onClick={() => setView(v)} style={{
             background: "none", border: "none", padding: isMobile ? "12px 12px" : "16px 20px", cursor: "pointer",
             fontSize: isMobile ? 12 : 14, fontWeight: 500,
@@ -319,7 +354,7 @@ export default function App() {
             marginBottom: -1,
             transition: "color 0.2s",
             whiteSpace: "nowrap"
-          }}>{v === "ai" ? "AI Tips" : v.charAt(0).toUpperCase() + v.slice(1)}</button>
+          }}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>
         ))}
       </div>
 
@@ -329,7 +364,7 @@ export default function App() {
 
         {/* TODAY */}
         {!dataLoading && view === "today" && <>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 20, marginBottom: isMobile ? 20 : 32 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 20, marginBottom: isMobile ? 12 : 20 }}>
             <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px" }}>
               <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Today's Progress</div>
               <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px" }}>{todayDone}/{habits.length}</div>
@@ -339,7 +374,7 @@ export default function App() {
               <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px", color: accent }}>{habits.length ? Math.round((todayDone / habits.length) * 100) : 0}%</div>
             </div>
           </div>
-          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px", marginBottom: isMobile ? 20 : 32 }}>
+          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px", marginBottom: isMobile ? 12 : 20 }}>
             <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, marginBottom: isMobile ? 12 : 16, letterSpacing: "0.5px", textTransform: "uppercase" }}>Overall Progress</div>
             <div style={{ height: 6, background: border, borderRadius: 3, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${habits.length ? (todayDone / habits.length) * 100 : 0}%`, background: accent, borderRadius: 3, transition: "width 0.4s" }}></div>
@@ -349,7 +384,7 @@ export default function App() {
           {habits.map(h => {
             const done = !!logs[h.id]?.[today], s = calcStreak(h.id, logs);
             return (
-              <div key={h.id} style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "12px 14px" : "20px 24px", marginBottom: isMobile ? 12 : 16, display: "flex", alignItems: "center", gap: isMobile ? 12 : 16, transition: "all 0.2s" }}>
+              <div key={h.id} style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "12px 14px" : "20px 24px", marginBottom: isMobile ? 8 : 12, display: "flex", alignItems: "center", gap: isMobile ? 12 : 16, transition: "all 0.2s" }}>
                 <button onClick={() => toggleLog(h.id, today)} style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: "50%", border: `2.5px solid ${done ? h.color : border}`, background: done ? h.color : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
                   {done && <svg width={isMobile ? 14 : 16} height={isMobile ? 14 : 16} viewBox="0 0 14 14"><polyline points="2,7 6,11 12,3" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" /></svg>}
                 </button>
@@ -475,25 +510,80 @@ export default function App() {
           </div>
         </>}
 
-        {/* AI TIPS */}
-        {!dataLoading && view === "ai" && <>
-          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "20px 20px" : "28px 32px", marginBottom: isMobile ? 16 : 24 }}>
-            <div style={{ fontWeight: 600, fontSize: isMobile ? 16 : 20, marginBottom: isMobile ? 8 : 12, letterSpacing: "-0.5px" }}>Your Habit Coach</div>
-            <div style={{ fontSize: isMobile ? 13 : 15, color: muted, marginBottom: isMobile ? 16 : 20, lineHeight: 1.6 }}>Get personalized, AI-powered tips based on your habit data and progress patterns.</div>
-            <button onClick={getAiTip} disabled={aiLoading} style={{ background: accent, color: "#fff", border: "none", borderRadius: 8, padding: isMobile ? "10px 16px" : "12px 24px", cursor: aiLoading ? "not-allowed" : "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, opacity: aiLoading ? 0.7 : 1, transition: "all 0.2s" }}>
-              {aiLoading ? "✨ Thinking..." : "✨ Get Tips"}
-            </button>
+        {/* NOTES */}
+        {!dataLoading && view === "notes" && <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isMobile ? 16 : 24 }}>
+            <div style={{ fontWeight: 600, fontSize: isMobile ? 18 : 24, letterSpacing: "-0.5px" }}>Notes</div>
+            {!isMobile && <button onClick={() => { setShowAddNote(true); setNoteContent(""); setNoteDate(getToday()); }} style={{ background: accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 600, transition: "all 0.2s" }}>+ Add Note</button>}
           </div>
-          {aiError && <div style={{ color: "#e24b4a", fontSize: isMobile ? 13 : 14, marginBottom: isMobile ? 16 : 24, background: "rgba(226, 75, 74, 0.1)", padding: isMobile ? "12px 16px" : "16px 20px", borderRadius: 8, fontWeight: 500 }}>❌ {aiError}</div>}
-          {aiTip && (
-            <div style={{ background: card, borderRadius: 12, border: `1px solid ${accent}`, padding: isMobile ? "20px 20px" : "28px 32px", marginBottom: isMobile ? 16 : 24 }}>
-              <div style={{ fontSize: isMobile ? 10 : 12, color: accent, fontWeight: 700, marginBottom: isMobile ? 8 : 12, textTransform: "uppercase", letterSpacing: "0.8px" }}>💡 Coach's Advice</div>
-              <div style={{ fontSize: isMobile ? 13 : 15, color: text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{aiTip}</div>
+          {isMobile && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 50 }}>
+            <button onClick={() => { setShowAddNote(true); setNoteContent(""); setNoteDate(getToday()); }} style={{ width: 56, height: 56, background: accent, color: "#fff", border: "none", borderRadius: 28, cursor: "pointer", fontSize: 24, fontWeight: 600, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(107, 92, 255, 0.3)" }}>+</button>
+          </div>}
+          {notes.length === 0 ? (
+            <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No notes yet. Start writing!</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
+              {notes.map(note => {
+                const noteDateTime = new Date(note.date + "T00:00:00");
+                const dateStr = noteDateTime.toLocaleDateString("en-US", { month: "short", day: "numeric", year: noteDateTime.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined });
+                return (
+                  <div
+                    key={note.id}
+                    onTouchStart={() => handleNoteLongPressStart(note.id)}
+                    onTouchEnd={handleNoteLongPressEnd}
+                    onMouseDown={() => handleNoteLongPressStart(note.id)}
+                    onMouseUp={handleNoteLongPressEnd}
+                    onMouseLeave={handleNoteLongPressEnd}
+                    style={{
+                      background: card,
+                      borderRadius: 10,
+                      border: `1px solid ${border}`,
+                      padding: isMobile ? "14px 16px" : "16px 20px",
+                      position: "relative",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: isMobile ? 11 : 12, color: accent, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.4px" }}>{dateStr}</div>
+                        <div style={{ fontSize: isMobile ? 13 : 14, color: text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{note.content}</div>
+                      </div>
+                      {!isMobile && <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: muted, fontSize: 18, cursor: "pointer", padding: "4px 8px", transition: "color 0.2s" }} title="Delete">×</button>}
+                    </div>
+                    {isMobile && longPressNote === note.id && (
+                      <div style={{ position: "absolute", bottom: -50, left: 0, right: 0, height: 50, background: "rgba(226, 75, 74, 0.9)", borderRadius: "0 0 10px 10px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => deleteNote(note.id)}>
+                        <div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>Delete</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
-          {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: isMobile ? "30px 20px" : "40px 32px", fontSize: isMobile ? 14 : 15 }}>Add some habits first to get personalized coaching tips!</div>}
         </>}
       </div>
+
+      {/* Add Note Modal */}
+      {showAddNote && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddNote(false); }}>
+          <div style={{ background: card, borderRadius: isMobile ? "16px 16px 0 0" : "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>Add Note</div>
+            <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Write something on your mind</div>
+            <div style={{ marginBottom: isMobile ? 16 : 20 }}>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Date</label>
+              <input type="date" value={noteDate} onChange={e => setNoteDate(e.target.value)} style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500 }} />
+            </div>
+            <div style={{ marginBottom: isMobile ? 20 : 28 }}>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Note</label>
+              <textarea value={noteContent} onChange={e => setNoteContent(e.target.value)} placeholder="Type your note here..." style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500, fontFamily: "inherit", minHeight: 120, resize: "none" }} />
+            </div>
+            <div style={{ display: "flex", gap: isMobile ? 10 : 12 }}>
+              <button onClick={() => setShowAddNote(false)} style={{ flex: 1, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "none", color: text, cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>Cancel</button>
+              <button onClick={addNote} style={{ flex: 1.2, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: "none", background: accent, color: "#fff", cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>Save Note</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {showAdd && (
