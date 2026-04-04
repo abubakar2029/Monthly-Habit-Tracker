@@ -112,7 +112,7 @@ export default function App() {
       const savedTheme = data[0].theme;
       if (savedTheme) { setDark(savedTheme === "dark"); saveTheme(savedTheme === "dark"); }
     }
-  }, [dark]);
+  }, [dark, today]);
 
   const checkSession = useCallback(async () => {
     try {
@@ -263,9 +263,6 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
-  const handleNoteLongPress = (noteId) => {
-    setLongPressNote(noteId);
-  };
 
   const handleNoteLongPressStart = (noteId) => {
     longPressTimer.current = setTimeout(() => {
