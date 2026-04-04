@@ -44,7 +44,6 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [editHabit, setEditHabit] = useState(null);
   const [newName, setNewName] = useState("");
-  const [newReminder, setNewReminder] = useState("08:00");
   const [newColor, setNewColor] = useState(COLORS[0]);
   const [notes, setNotes] = useState([]);
   const [showAddNote, setShowAddNote] = useState(false);
@@ -78,6 +77,7 @@ export default function App() {
       const habitsData = await hRes.json();
       const logsData = await lRes.json();
       const notesData = await nRes.json();
+      console.log("[v0] LoadData - habits:", habitsData, "logs:", logsData, "notes:", notesData);
       setHabits(Array.isArray(habitsData) ? habitsData : []);
       const logsMap = {};
       if (Array.isArray(logsData)) {
@@ -102,8 +102,8 @@ export default function App() {
       });
       // Add default habits for new users
       const defaultHabits = [
-        { user_id: uid, name: "5 prayers", reminder: "08:00", color: COLORS[0], created_at: today },
-        { user_id: uid, name: "Wake up at 5:00 ⏰", reminder: "05:00", color: COLORS[1], created_at: today }
+        { user_id: uid, name: "5 prayers", color: COLORS[0], created_at: today },
+        { user_id: uid, name: "Wake up at 5:00 ⏰", color: COLORS[1], created_at: today }
       ];
       for (const habit of defaultHabits) {
         await api("habits", { method: "POST", _token: tok, prefer: "return=minimal", body: JSON.stringify(habit) });
@@ -215,18 +215,17 @@ export default function App() {
 
   const addHabit = async () => {
     if (!newName.trim()) return;
-    if (editHabit) {
-      const updated = { name: newName, reminder: newReminder, color: newColor };
-      setHabits(h => h.map(x => x.id === editHabit ? { ...x, ...updated } : x));
-      await api(`habits?id=eq.${editHabit}`, { method: "PATCH", _token: token.current, prefer: "return=minimal", body: JSON.stringify(updated) });
-      setEditHabit(null);
-    } else {
-      const newH = { user_id: session.user.id, name: newName, reminder: newReminder, color: newColor, created_at: today };
-      const res = await api("habits", { method: "POST", _token: token.current, prefer: "return=representation", headers: { "Accept": "application/json" }, body: JSON.stringify(newH) });
-      const data = await res.json();
-      setHabits(h => [...h, ...data]);
-    }
-    setNewName(""); setNewReminder("08:00"); setNewColor(COLORS[0]); setShowAdd(false);
+    try {
+      if (editHabit) {
+        const updated = { name: newName, color: newColor };
+        await api(`habits?id=eq.${editHabit}`, { method: "PATCH", _token: token.current, prefer: "return=minimal", body: JSON.stringify(updated) });
+      } else {
+        const newH = { user_id: session.user.id, name: newName, color: newColor, created_at: today };
+        await api("habits", { method: "POST", _token: token.current, prefer: "return=minimal", body: JSON.stringify(newH) });
+      }
+      loadData(token.current, session.user.id);
+      setShowAdd(false); setEditHabit(null); setNewName(""); setNewColor(COLORS[0]);
+    } catch (e) { console.error(e); }
   };
 
   const deleteHabit = async id => {
@@ -236,23 +235,27 @@ export default function App() {
     await api(`habits?id=eq.${id}`, { method: "DELETE", _token: token.current });
   };
 
-  const openEdit = h => { setEditHabit(h.id); setNewName(h.name); setNewReminder(h.reminder || "08:00"); setNewColor(h.color); setShowAdd(true); };
+  const openEdit = h => { setEditHabit(h.id); setNewName(h.name); setNewColor(h.color); setShowAdd(true); };
 
   const addNote = async () => {
     if (!noteContent.trim()) return;
     const newNote = { user_id: session.user.id, content: noteContent, date: noteDate };
     try {
-      await api("notes", {
+      console.log("[v0] Adding note:", newNote);
+      const createRes = await api("notes", {
         method: "POST", _token: token.current, prefer: "return=minimal",
         body: JSON.stringify(newNote)
       });
+      console.log("[v0] Create response status:", createRes.status);
+      
       const updatedNotes = await api(`notes?user_id=eq.${session.user.id}&order=date.desc`, { _token: token.current, headers: { "Accept": "application/json" } });
       const data = await updatedNotes.json();
+      console.log("[v0] Retrieved notes:", data);
       setNotes(Array.isArray(data) ? data : []);
       setNoteContent("");
       setNoteDate(getToday());
       setShowAddNote(false);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("[v0] Error adding note:", e); }
   };
 
   const deleteNote = async (id) => {
@@ -388,7 +391,6 @@ export default function App() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: isMobile ? 14 : 16, textDecoration: done ? "line-through" : "none", color: done ? muted : text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
                   <div style={{ fontSize: isMobile ? 11 : 13, color: muted, marginTop: 2 }}>
-                    {h.reminder && <span style={{ marginRight: isMobile ? 8 : 14 }}>⏰ {h.reminder}</span>}
                     {s > 0 && <span style={{ color: h.color, fontWeight: 600 }}>🔥 {s} day streak</span>}
                   </div>
                 </div>
@@ -399,7 +401,7 @@ export default function App() {
               </div>
             );
           })}
-          <button onClick={() => { setShowAdd(true); setEditHabit(null); setNewName(""); setNewReminder("08:00"); setNewColor(COLORS[0]); }} style={{ width: "100%", background: accent, border: "none", borderRadius: 12, padding: isMobile ? "14px 20px" : "16px 24px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 14 : 15, fontWeight: 600, marginTop: isMobile ? 16 : 20, transition: "all 0.2s" }}>+ Add New Habit</button>
+          <button onClick={() => { setShowAdd(true); setEditHabit(null); setNewName(""); setNewColor(COLORS[0]); }} style={{ width: "100%", background: accent, border: "none", borderRadius: 12, padding: isMobile ? "14px 20px" : "16px 24px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 14 : 15, fontWeight: 600, marginTop: isMobile ? 16 : 20, transition: "all 0.2s" }}>+ Add New Habit</button>
         </>}
 
         {/* MONTH */}
@@ -562,8 +564,8 @@ export default function App() {
 
       {/* Add Note Modal */}
       {showAddNote && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddNote(false); }}>
-          <div style={{ background: card, borderRadius: isMobile ? "16px 16px 0 0" : "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddNote(false); }}>
+          <div style={{ background: card, borderRadius: "12px", padding: isMobile ? "24px 20px" : "32px 28px 40px", width: "100%", maxWidth: 500, maxHeight: "85vh", overflowY: "auto", margin: isMobile ? "20px" : "0" }}>
             <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>Add Note</div>
             <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Write something on your mind</div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
@@ -580,8 +582,8 @@ export default function App() {
 
       {/* Add/Edit Modal */}
       {showAdd && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setEditHabit(null); } }}>
-          <div style={{ background: card, borderRadius: isMobile ? "16px 16px 0 0" : "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setEditHabit(null); } }}>
+          <div style={{ background: card, borderRadius: "12px", padding: isMobile ? "24px 20px" : "32px 28px 40px", width: "100%", maxWidth: 500, maxHeight: "85vh", overflowY: "auto", margin: isMobile ? "20px" : "0" }}>
             <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>{editHabit ? "Edit Habit" : "Create New Habit"}</div>
             <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Set up a habit to track daily</div>
             <div style={{ marginBottom: isMobile ? 16 : 20 }}>
