@@ -395,7 +395,8 @@ export default function App() {
           </div>
           {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No habits yet. Add your first one!</div>}
           {habits.map(h => {
-            const done = !!logs[h.id]?.[today], s = calcStreak(h.id, logs);
+            const done = !!logs[h.id]?.[today];
+            const s = monthDays.filter(d => logs[h.id]?.[d]).length;
             return (
               <div key={h.id} style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "12px 14px" : "20px 24px", marginBottom: isMobile ? 8 : 12, display: "flex", alignItems: "center", gap: isMobile ? 12 : 16, transition: "all 0.2s" }}>
                 <button onClick={() => toggleLog(h.id, today)} style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: "50%", border: `2.5px solid ${done ? h.color : border}`, background: done ? h.color : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
@@ -403,7 +404,12 @@ export default function App() {
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: isMobile ? 14 : 16, textDecoration: done ? "line-through" : "none", color: done ? muted : text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
-                  <div style={{ fontSize: isMobile ? 11 : 13, color: h.color, marginTop: 2, fontWeight: 600 }}>{done && s > 0 ? "🔥 " : ""}{s} day{s !== 1 ? "s" : ""} streak</div>
+                  <div style={{ fontSize: isMobile ? 11 : 13, color: h.color, marginTop: 2, fontWeight: 600 }}>{
+
+                    s === monthDays.length && monthDays.length > 0 ? "🔥 " : ""}
+                    {s} day{s !== 1 ? "s" : ""} completed
+
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: isMobile ? 6 : 10, flexShrink: 0 }}>
                   <button onClick={() => openEdit(h)} style={{ background: "none", border: "none", cursor: "pointer", color: muted, fontSize: isMobile ? 11 : 13, fontWeight: 500, padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 6, transition: "all 0.2s" }}>Edit</button>
