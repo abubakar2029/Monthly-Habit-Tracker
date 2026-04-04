@@ -22,21 +22,20 @@ function getDaysInMonth(year, month) {
   const days = [];
   const firstDay = new Date(year, month, 1);
   const startDay = firstDay.getDay(); // 0 = Sunday, 6 = Saturday
-  
+
   // Add padding days from previous month
-  const prevMonthLastDay = new Date(year, month, 0).getDate();
   for (let i = startDay - 1; i >= 0; i--) {
     const padDate = new Date(year, month, -i);
     days.push(padDate.toISOString().split("T")[0]);
   }
-  
+
   // Add days of current month
   const d = new Date(year, month, 1);
   while (d.getMonth() === month) {
     days.push(d.toISOString().split("T")[0]);
     d.setDate(d.getDate() + 1);
   }
-  
+
   return days;
 }
 function calcStreak(habitId, logs) {
