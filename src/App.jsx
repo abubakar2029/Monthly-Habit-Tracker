@@ -67,8 +67,8 @@ export default function App() {
   const [noteContent, setNoteContent] = useState("");
   const [noteDate, setNoteDate] = useState(getToday());
   const [dataLoading, setDataLoading] = useState(false);
-  const [longPressNote, setLongPressNote] = useState(null);
-  const longPressTimer = useRef(null);
+  const [undoNote, setUndoNote] = useState(null);
+  const undoTimer = useRef(null);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   const now = new Date();
   const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
@@ -135,12 +135,38 @@ export default function App() {
       const stored = localStorage.getItem("ht_session");
       if (stored) {
         const s = JSON.parse(stored);
-        if (s.expires_at > Date.now() / 1000) {
+        const now = Date.now() / 1000;
+        // If token is expired, try to refresh it
+        if (s.expires_at <= now) {
+          if (s.refresh_token) {
+            try {
+              const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+                method: "POST",
+                headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+                body: JSON.stringify({ refresh_token: s.refresh_token })
+              });
+              if (res.ok) {
+                const newAuth = await res.json();
+                const refreshedSession = { 
+                  ...s, 
+                  access_token: newAuth.access_token, 
+                  refresh_token: newAuth.refresh_token || s.refresh_token,
+                  expires_at: now + (newAuth.expires_in || 3600) 
+                };
+                localStorage.setItem("ht_session", JSON.stringify(refreshedSession));
+                token.current = newAuth.access_token;
+                setSession(refreshedSession);
+                await loadData(newAuth.access_token, s.user.id);
+                setAuthLoading(false);
+                return;
+              }
+            } catch (e) { console.error("Token refresh failed:", e); }
+          }
+          localStorage.removeItem("ht_session");
+        } else {
           token.current = s.access_token;
           setSession(s);
           await loadData(s.access_token, s.user.id);
-        } else {
-          localStorage.removeItem("ht_session");
         }
       }
     } catch { }
@@ -272,23 +298,42 @@ export default function App() {
   };
 
   const deleteNote = async (id) => {
-    try {
-      await api(`notes?id=eq.${id}`, { method: "DELETE", _token: token.current });
-      setNotes(n => n.filter(note => note.id !== id));
-      setLongPressNote(null);
-    } catch (e) { console.error(e); }
+    const noteToDelete = notes.find(n => n.id === id);
+    if (!noteToDelete) return;
+    
+    // Remove from UI immediately
+    setNotes(n => n.filter(note => note.id !== id));
+    setUndoNote({ note: noteToDelete, timer: null });
+    
+    // Clear existing timer if any
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    
+    // Set 5-second undo timer
+    const timer = setTimeout(async () => {
+      try {
+        await api(`notes?id=eq.${id}`, { method: "DELETE", _token: token.current });
+        setUndoNote(null);
+      } catch (e) { 
+        console.error(e);
+        // Restore note if deletion fails
+        setNotes(n => [...n, noteToDelete]);
+        setUndoNote(null);
+      }
+    }, 5000);
+    
+    undoTimer.current = timer;
+  };
+
+  const restoreNote = () => {
+    if (undoNote) {
+      setNotes(n => [...n, undoNote.note]);
+      setUndoNote(null);
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    }
   };
 
 
-  const handleNoteLongPressStart = (noteId) => {
-    longPressTimer.current = setTimeout(() => {
-      setLongPressNote(noteId);
-    }, 500);
-  };
 
-  const handleNoteLongPressEnd = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-  };
 
   // ── Theme tokens ──────────────────────────────────────
   const bg = dark ? "#0f0f0f" : "#fafaf9";
@@ -377,15 +422,9 @@ export default function App() {
 
         {/* TODAY */}
         {!dataLoading && view === "today" && <>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 20, marginBottom: isMobile ? 12 : 20 }}>
-            <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px" }}>
-              <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Today's Progress</div>
-              <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px" }}>{todayDone}/{habits.length}</div>
-            </div>
-            <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px" }}>
-              <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Completion</div>
-              <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px", color: accent }}>{habits.length ? Math.round((todayDone / habits.length) * 100) : 0}%</div>
-            </div>
+          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px", marginBottom: isMobile ? 12 : 20 }}>
+            <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Today's Progress</div>
+            <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px" }}>{todayDone}/{habits.length}</div>
           </div>
           <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px", marginBottom: isMobile ? 12 : 20 }}>
             <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, marginBottom: isMobile ? 12 : 16, letterSpacing: "0.5px", textTransform: "uppercase" }}>Overall Progress</div>
@@ -542,11 +581,6 @@ export default function App() {
                 return (
                   <div
                     key={note.id}
-                    onTouchStart={() => handleNoteLongPressStart(note.id)}
-                    onTouchEnd={handleNoteLongPressEnd}
-                    onMouseDown={() => handleNoteLongPressStart(note.id)}
-                    onMouseUp={handleNoteLongPressEnd}
-                    onMouseLeave={handleNoteLongPressEnd}
                     style={{
                       background: card,
                       borderRadius: 14,
@@ -564,11 +598,6 @@ export default function App() {
                       <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: muted, fontSize: isMobile ? 16 : 18, cursor: "pointer", padding: "2px 4px", transition: "color 0.2s", flexShrink: 0, opacity: 0.6, hover: { opacity: 1 } }} title="Delete note">×</button>
                     </div>
                     <div style={{ fontSize: isMobile ? 14 : 15, color: text, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", flex: 1, fontWeight: 400 }}>{note.content}</div>
-                    {isMobile && longPressNote === note.id && (
-                      <div style={{ position: "absolute", bottom: -50, left: 0, right: 0, height: 50, background: "rgba(226, 75, 74, 0.9)", borderRadius: "0 0 14px 14px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => deleteNote(note.id)}>
-                        <div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>Delete</div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -624,6 +653,14 @@ export default function App() {
               <button onClick={addHabit} style={{ flex: 1.2, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: "none", background: accent, color: "#fff", cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>{editHabit ? "Save Changes" : "Create Habit"}</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Undo Toast */}
+      {undoNote && (
+        <div style={{ position: "fixed", bottom: isMobile ? 16 : 24, left: isMobile ? 16 : 24, background: card, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, zIndex: 1000, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
+          <div style={{ flex: 1, fontSize: isMobile ? 13 : 14, color: text, fontWeight: 500 }}>Note deleted</div>
+          <button onClick={restoreNote} style={{ background: accent, border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.2s" }}>Undo</button>
         </div>
       )}
     </div>
