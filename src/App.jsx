@@ -93,10 +93,10 @@ export default function App() {
         });
         
         if (todayHeader) {
-          const containerLeft = table.parentElement.scrollLeft;
+          // const containerLeft = table.parentElement.scrollLeft;
           const headerLeft = todayHeader.offsetLeft;
-          const headerWidth = todayHeader.offsetWidth;
-          const containerWidth = table.parentElement.clientWidth;
+          // const headerWidth = todayHeader.offsetWidth;
+          // const containerWidth = table.parentElement.clientWidth;
           const stickyColWidth = isMobile ? 100 : 140;
           
           // Scroll so today's column is visible after sticky column
