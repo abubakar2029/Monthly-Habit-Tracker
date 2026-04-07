@@ -370,7 +370,7 @@ export default function App() {
         setNotes(n => [...n, noteToDelete]);
         setUndoNote(null);
       }
-    }, 5000);
+    }, 3500);
     
     undoTimer.current = timer;
   };
