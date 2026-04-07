@@ -60,12 +60,14 @@ export default function App() {
   const [noteDate, setNoteDate] = useState(getToday());
   const [dataLoading, setDataLoading] = useState(false);
   const [undoNote, setUndoNote] = useState(null);
+  const [undoHabit, setUndoHabit] = useState(null);
   const undoTimer = useRef(null);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   const now = new Date();
   const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const today = getToday();
   const token = useRef(null);
+  const calendarTableRef = useRef(null);
 
   // Responsive hook
   useEffect(() => {
@@ -74,6 +76,36 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Calendar auto-scroll to today
+  useEffect(() => {
+    if (view === "month" && calendarTableRef.current) {
+      setTimeout(() => {
+        const table = calendarTableRef.current;
+        if (!table) return;
+        
+        const headerRow = table.querySelector("thead tr");
+        if (!headerRow) return;
+        
+        const headers = Array.from(headerRow.querySelectorAll("th"));
+        const todayHeader = headers.find(h => {
+          const dateDiv = h.querySelector("div:last-child");
+          return dateDiv && dateDiv.textContent.trim() === new Date(today).getDate().toString();
+        });
+        
+        if (todayHeader) {
+          const containerLeft = table.parentElement.scrollLeft;
+          const headerLeft = todayHeader.offsetLeft;
+          const headerWidth = todayHeader.offsetWidth;
+          const containerWidth = table.parentElement.clientWidth;
+          const stickyColWidth = isMobile ? 100 : 140;
+          
+          // Scroll so today's column is visible after sticky column
+          const scrollTarget = Math.max(0, headerLeft - stickyColWidth - 40);
+          table.parentElement.scrollLeft = scrollTarget;
+        }
+      }, 100);
+    }
+  }, [view, monthYear, today, isMobile]);
 
   const loadData = useCallback(async (tok, uid) => {
     setDataLoading(true);
@@ -264,10 +296,37 @@ export default function App() {
   };
 
   const deleteHabit = async id => {
+    const habitToDelete = habits.find(h => h.id === id);
+    if (!habitToDelete) return;
+    
+    const oldLogs = logs[id];
+    
+    // Remove from UI immediately
     setHabits(h => h.filter(x => x.id !== id));
     setLogs(l => { const c = { ...l }; delete c[id]; return c; });
-    await api(`habit_logs?habit_id=eq.${id}`, { method: "DELETE", _token: token.current });
-    await api(`habits?id=eq.${id}`, { method: "DELETE", _token: token.current });
+    setUndoHabit({ habit: habitToDelete, logs: oldLogs, timer: null });
+    
+    // Clear existing timer if any
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    
+    // Set 5-second undo timer
+    const timer = setTimeout(async () => {
+      try {
+        await api(`habit_logs?habit_id=eq.${id}`, { method: "DELETE", _token: token.current });
+        await api(`habits?id=eq.${id}`, { method: "DELETE", _token: token.current });
+        setUndoHabit(null);
+      } catch (e) { 
+        console.error(e);
+        // Restore habit if deletion fails
+        setHabits(h => [...h, habitToDelete]);
+        if (oldLogs) {
+          setLogs(l => ({ ...l, [id]: oldLogs }));
+        }
+        setUndoHabit(null);
+      }
+    }, 5000);
+    
+    undoTimer.current = timer;
   };
 
   const openEdit = h => { setEditHabit(h.id); setNewName(h.name); setNewColor(h.color); setShowAdd(true); };
@@ -320,6 +379,17 @@ export default function App() {
     if (undoNote) {
       setNotes(n => [...n, undoNote.note]);
       setUndoNote(null);
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    }
+  };
+
+  const restoreHabit = () => {
+    if (undoHabit) {
+      setHabits(h => [...h, undoHabit.habit]);
+      if (undoHabit.logs) {
+        setLogs(l => ({ ...l, [undoHabit.habit.id]: undoHabit.logs }));
+      }
+      setUndoHabit(null);
       if (undoTimer.current) clearTimeout(undoTimer.current);
     }
   };
@@ -460,7 +530,7 @@ export default function App() {
             <button onClick={nextMonth} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", cursor: "pointer", color: text, fontSize: isMobile ? 14 : 18, fontWeight: 500, transition: "all 0.2s" }}>→</button>
           </div>
 
-          <div className="scrollable-table" style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, marginBottom: isMobile ? 20 : 32, overflowX: "auto" }}>
+          <div ref={calendarTableRef} className="scrollable-table" style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, marginBottom: isMobile ? 20 : 32, overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", minWidth: "100%", width: "100%" }}>
               <thead>
                 <tr>
@@ -479,7 +549,7 @@ export default function App() {
               <tbody>
                 {habits.map((h, hi) => (
                   <tr key={h.id} style={{ borderBottom: `1px solid ${border}` }}>
-                    <td style={{ padding: isMobile ? "10px 12px" : "14px 16px", position: "sticky", left: 0, background: card, zIndex: 1, maxWidth: isMobile ? 100 : 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <td style={{ padding: isMobile ? "10px 12px" : "14px 16px", position: "sticky", left: 0, background: card, zIndex: 1, maxWidth: isMobile ? 120 : 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
                         <div style={{ width: 6, height: 6, borderRadius: "50%", background: h.color, flexShrink: 0 }}></div>
                         <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 500, color: text, overflow: "hidden", textOverflow: "ellipsis" }}>{h.name}</span>
@@ -655,10 +725,10 @@ export default function App() {
       )}
 
       {/* Undo Toast */}
-      {undoNote && (
+      {(undoNote || undoHabit) && (
         <div style={{ position: "fixed", bottom: isMobile ? 16 : 24, left: isMobile ? 16 : 24, background: card, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, zIndex: 1000, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
-          <div style={{ flex: 1, fontSize: isMobile ? 13 : 14, color: text, fontWeight: 500 }}>Note deleted</div>
-          <button onClick={restoreNote} style={{ background: accent, border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.2s" }}>Undo</button>
+          <div style={{ flex: 1, fontSize: isMobile ? 13 : 14, color: text, fontWeight: 500 }}>{undoNote ? "Note deleted" : "Habit deleted"}</div>
+          <button onClick={undoNote ? restoreNote : restoreHabit} style={{ background: accent, border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.2s" }}>Undo</button>
         </div>
       )}
     </div>
