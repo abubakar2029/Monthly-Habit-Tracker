@@ -59,6 +59,7 @@ export default function App() {
   const [noteContent, setNoteContent] = useState("");
   const [noteDate, setNoteDate] = useState(getToday());
   const [dataLoading, setDataLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [undoNote, setUndoNote] = useState(null);
   const [undoHabit, setUndoHabit] = useState(null);
   const undoTimer = useRef(null);
@@ -78,7 +79,7 @@ export default function App() {
 
   // Calendar auto-scroll to today
   useEffect(() => {
-    if (view === "month" && calendarTableRef.current) {
+    if (view === "month" && calendarTableRef.current && dataLoaded) {
       // Use requestAnimationFrame for better timing
       requestAnimationFrame(() => {
         const container = calendarTableRef.current;
@@ -97,7 +98,7 @@ export default function App() {
         container.scrollLeft = scrollTarget;
       });
     }
-  }, [view, monthYear, today, isMobile]);
+  }, [view, monthYear, today, isMobile, dataLoaded]);
 
   const loadData = useCallback(async (tok, uid) => {
     setDataLoading(true);
@@ -173,6 +174,7 @@ export default function App() {
                 token.current = newAuth.access_token;
                 setSession(refreshedSession);
                 await loadData(newAuth.access_token, s.user.id);
+                setDataLoaded(true);
                 setAuthLoading(false);
                 return;
               }
@@ -183,6 +185,7 @@ export default function App() {
           token.current = s.access_token;
           setSession(s);
           await loadData(s.access_token, s.user.id);
+          setDataLoaded(true);
         }
       }
     } catch { }
@@ -209,6 +212,7 @@ export default function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
       await ensureProfile(access_token, user.id, user.email);
       await loadData(access_token, user.id);
+      setDataLoaded(true);
     } catch (e) { console.error(e); }
     setAuthLoading(false);
   }, [ensureProfile, loadData]
