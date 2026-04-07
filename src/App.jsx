@@ -66,6 +66,7 @@ export default function App() {
   const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const today = getToday();
   const token = useRef(null);
+  const calendarTableRef = useRef(null);
 
   // Responsive hook
   useEffect(() => {
@@ -74,6 +75,36 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Calendar auto-scroll to today
+  useEffect(() => {
+    if (view === "month" && calendarTableRef.current) {
+      setTimeout(() => {
+        const table = calendarTableRef.current;
+        if (!table) return;
+        
+        const headerRow = table.querySelector("thead tr");
+        if (!headerRow) return;
+        
+        const headers = Array.from(headerRow.querySelectorAll("th"));
+        const todayHeader = headers.find(h => {
+          const dateDiv = h.querySelector("div:last-child");
+          return dateDiv && dateDiv.textContent.trim() === new Date(today).getDate().toString();
+        });
+        
+        if (todayHeader) {
+          const containerLeft = table.parentElement.scrollLeft;
+          const headerLeft = todayHeader.offsetLeft;
+          const headerWidth = todayHeader.offsetWidth;
+          const containerWidth = table.parentElement.clientWidth;
+          const stickyColWidth = isMobile ? 100 : 140;
+          
+          // Scroll so today's column is visible after sticky column
+          const scrollTarget = Math.max(0, headerLeft - stickyColWidth - 40);
+          table.parentElement.scrollLeft = scrollTarget;
+        }
+      }, 100);
+    }
+  }, [view, monthYear, today, isMobile]);
 
   const loadData = useCallback(async (tok, uid) => {
     setDataLoading(true);
@@ -460,7 +491,7 @@ export default function App() {
             <button onClick={nextMonth} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", cursor: "pointer", color: text, fontSize: isMobile ? 14 : 18, fontWeight: 500, transition: "all 0.2s" }}>→</button>
           </div>
 
-          <div className="scrollable-table" style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, marginBottom: isMobile ? 20 : 32, overflowX: "auto" }}>
+          <div ref={calendarTableRef} className="scrollable-table" style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, marginBottom: isMobile ? 20 : 32, overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", minWidth: "100%", width: "100%" }}>
               <thead>
                 <tr>
@@ -479,7 +510,7 @@ export default function App() {
               <tbody>
                 {habits.map((h, hi) => (
                   <tr key={h.id} style={{ borderBottom: `1px solid ${border}` }}>
-                    <td style={{ padding: isMobile ? "10px 12px" : "14px 16px", position: "sticky", left: 0, background: card, zIndex: 1, maxWidth: isMobile ? 100 : 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <td style={{ padding: isMobile ? "10px 12px" : "14px 16px", position: "sticky", left: 0, background: card, zIndex: 1, maxWidth: isMobile ? 120 : 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
                         <div style={{ width: 6, height: 6, borderRadius: "50%", background: h.color, flexShrink: 0 }}></div>
                         <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 500, color: text, overflow: "hidden", textOverflow: "ellipsis" }}>{h.name}</span>
