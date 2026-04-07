@@ -60,6 +60,7 @@ export default function App() {
   const [noteDate, setNoteDate] = useState(getToday());
   const [dataLoading, setDataLoading] = useState(false);
   const [undoNote, setUndoNote] = useState(null);
+  const [undoHabit, setUndoHabit] = useState(null);
   const undoTimer = useRef(null);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   const now = new Date();
@@ -295,10 +296,37 @@ export default function App() {
   };
 
   const deleteHabit = async id => {
+    const habitToDelete = habits.find(h => h.id === id);
+    if (!habitToDelete) return;
+    
+    const oldLogs = logs[id];
+    
+    // Remove from UI immediately
     setHabits(h => h.filter(x => x.id !== id));
     setLogs(l => { const c = { ...l }; delete c[id]; return c; });
-    await api(`habit_logs?habit_id=eq.${id}`, { method: "DELETE", _token: token.current });
-    await api(`habits?id=eq.${id}`, { method: "DELETE", _token: token.current });
+    setUndoHabit({ habit: habitToDelete, logs: oldLogs, timer: null });
+    
+    // Clear existing timer if any
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    
+    // Set 5-second undo timer
+    const timer = setTimeout(async () => {
+      try {
+        await api(`habit_logs?habit_id=eq.${id}`, { method: "DELETE", _token: token.current });
+        await api(`habits?id=eq.${id}`, { method: "DELETE", _token: token.current });
+        setUndoHabit(null);
+      } catch (e) { 
+        console.error(e);
+        // Restore habit if deletion fails
+        setHabits(h => [...h, habitToDelete]);
+        if (oldLogs) {
+          setLogs(l => ({ ...l, [id]: oldLogs }));
+        }
+        setUndoHabit(null);
+      }
+    }, 5000);
+    
+    undoTimer.current = timer;
   };
 
   const openEdit = h => { setEditHabit(h.id); setNewName(h.name); setNewColor(h.color); setShowAdd(true); };
@@ -351,6 +379,17 @@ export default function App() {
     if (undoNote) {
       setNotes(n => [...n, undoNote.note]);
       setUndoNote(null);
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    }
+  };
+
+  const restoreHabit = () => {
+    if (undoHabit) {
+      setHabits(h => [...h, undoHabit.habit]);
+      if (undoHabit.logs) {
+        setLogs(l => ({ ...l, [undoHabit.habit.id]: undoHabit.logs }));
+      }
+      setUndoHabit(null);
       if (undoTimer.current) clearTimeout(undoTimer.current);
     }
   };
@@ -686,10 +725,10 @@ export default function App() {
       )}
 
       {/* Undo Toast */}
-      {undoNote && (
+      {(undoNote || undoHabit) && (
         <div style={{ position: "fixed", bottom: isMobile ? 16 : 24, left: isMobile ? 16 : 24, background: card, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, zIndex: 1000, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
-          <div style={{ flex: 1, fontSize: isMobile ? 13 : 14, color: text, fontWeight: 500 }}>Note deleted</div>
-          <button onClick={restoreNote} style={{ background: accent, border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.2s" }}>Undo</button>
+          <div style={{ flex: 1, fontSize: isMobile ? 13 : 14, color: text, fontWeight: 500 }}>{undoNote ? "Note deleted" : "Habit deleted"}</div>
+          <button onClick={undoNote ? restoreNote : restoreHabit} style={{ background: accent, border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.2s" }}>Undo</button>
         </div>
       )}
     </div>
