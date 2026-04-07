@@ -79,31 +79,23 @@ export default function App() {
   // Calendar auto-scroll to today
   useEffect(() => {
     if (view === "month" && calendarTableRef.current) {
-      setTimeout(() => {
-        const table = calendarTableRef.current;
-        if (!table) return;
+      // Use requestAnimationFrame for better timing
+      requestAnimationFrame(() => {
+        const container = calendarTableRef.current;
+        if (!container) return;
         
-        const headerRow = table.querySelector("thead tr");
-        if (!headerRow) return;
+        // Find today's header using data-date attribute
+        const todayHeader = container.querySelector(`th[data-date="${today}"]`);
+        if (!todayHeader) return;
         
-        const headers = Array.from(headerRow.querySelectorAll("th"));
-        const todayHeader = headers.find(h => {
-          const dateDiv = h.querySelector("div:last-child");
-          return dateDiv && dateDiv.textContent.trim() === new Date(today).getDate().toString();
-        });
+        // Calculate scroll position accounting for sticky column
+        const stickyColWidth = isMobile ? 120 : 160;
+        const headerLeft = todayHeader.offsetLeft;
+        const scrollTarget = Math.max(0, headerLeft - stickyColWidth - 20);
         
-        if (todayHeader) {
-          // const containerLeft = table.parentElement.scrollLeft;
-          const headerLeft = todayHeader.offsetLeft;
-          // const headerWidth = todayHeader.offsetWidth;
-          // const containerWidth = table.parentElement.clientWidth;
-          const stickyColWidth = isMobile ? 100 : 140;
-          
-          // Scroll so today's column is visible after sticky column
-          const scrollTarget = Math.max(0, headerLeft - stickyColWidth - 40);
-          table.parentElement.scrollLeft = scrollTarget;
-        }
-      }, 100);
+        // Smooth scroll to today
+        container.scrollLeft = scrollTarget;
+      });
     }
   }, [view, monthYear, today, isMobile]);
 
@@ -397,7 +389,7 @@ export default function App() {
 
 
 
-  // ── Theme tokens ──────────────────────────────────────
+  // ── Theme tokens ────────���─────────────────────────────
   const bg = dark ? "#0f0f0f" : "#fafaf9";
   const card = dark ? "#1a1a1a" : "#ffffff";
   const border = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
@@ -538,7 +530,7 @@ export default function App() {
                   {monthDays.map(d => {
                     const dt = new Date(d + "T00:00:00"), isToday = d === today;
                     return (
-                      <th key={d} style={{ padding: isMobile ? "8px 4px" : "12px 6px", minWidth: isMobile ? 24 : 28, textAlign: "center", borderBottom: `1px solid ${border}`, fontWeight: 500 }}>
+                      <th key={d} data-date={d} style={{ padding: isMobile ? "8px 4px" : "12px 6px", minWidth: isMobile ? 24 : 28, textAlign: "center", borderBottom: `1px solid ${border}`, fontWeight: 500 }}>
                         <div style={{ color: isToday ? accent : muted, fontSize: isMobile ? 9 : 11, fontWeight: 600 }}>{DAY_LABELS[dt.getDay()]}</div>
                         <div style={{ color: isToday ? accent : text, fontSize: isMobile ? 10 : 12, fontWeight: isToday ? 700 : 600, marginTop: 2, background: isToday ? border : "transparent", padding: isToday ? "2px 4px" : "0", borderRadius: 4 }}>{dt.getDate()}</div>
                       </th>
