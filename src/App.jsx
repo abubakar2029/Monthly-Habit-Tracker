@@ -334,7 +334,7 @@ export default function App() {
     if (!noteContent.trim()) return;
     const newNote = { user_id: session.user.id, content: noteContent, date: noteDate, color: noteColor };
     try {
-      const createRes = await api("notes", {
+      await api("notes", {
         method: "POST", _token: token.current, prefer: "return=minimal",
         body: JSON.stringify(newNote)
       });
