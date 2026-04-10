@@ -685,6 +685,15 @@ export default function App() {
                 {new Date(today + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </div>
             </div>
+            <div style={{ marginBottom: isMobile ? 20 : 28 }}>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 12, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Color</label>
+              <div style={{ display: "flex", gap: isMobile ? 12 : 16, alignItems: "center" }}>
+                <button onClick={() => setNoteColor(null)} style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: "50%", background: "transparent", border: noteColor === null ? `3px solid ${accent}` : `2px solid ${border}`, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 16 : 18, color: muted }} title="Default">-</button>
+                <button onClick={() => setNoteColor("#dcfce7")} style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: "50%", background: "#dcfce7", border: noteColor === "#dcfce7" ? `3px solid ${accent}` : "none", cursor: "pointer", transition: "all 0.2s" }} title="Light Green"></button>
+                <button onClick={() => setNoteColor("#fce7f3")} style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: "50%", background: "#fce7f3", border: noteColor === "#fce7f3" ? `3px solid ${accent}` : "none", cursor: "pointer", transition: "all 0.2s" }} title="Light Pink"></button>
+                <button onClick={() => setNoteColor("#dbeafe")} style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: "50%", background: "#dbeafe", border: noteColor === "#dbeafe" ? `3px solid ${accent}` : "none", cursor: "pointer", transition: "all 0.2s" }} title="Light Blue"></button>
+              </div>
+            </div>
             <div style={{ display: "flex", gap: isMobile ? 10 : 12 }}>
               <button onClick={() => setShowAddNote(false)} style={{ flex: 1, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "none", color: text, cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>Cancel</button>
               <button onClick={addNote} style={{ flex: 1.2, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: "none", background: accent, color: "#fff", cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>Save Note</button>
