@@ -58,6 +58,7 @@ export default function App() {
   const [showAddNote, setShowAddNote] = useState(false);
   const [noteContent, setNoteContent] = useState("");
   const [noteDate, setNoteDate] = useState(getToday());
+  const [noteColor, setNoteColor] = useState(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [undoNote, setUndoNote] = useState(null);
@@ -111,6 +112,7 @@ export default function App() {
       const habitsData = await hRes.json();
       const logsData = await lRes.json();
       const notesData = await nRes.json();
+      console.log("[v0] LoadData - habits:", habitsData, "logs:", logsData, "notes:", notesData);
       setHabits(Array.isArray(habitsData) ? habitsData : []);
       const logsMap = {};
       if (Array.isArray(logsData)) {
@@ -125,13 +127,13 @@ export default function App() {
     setDataLoading(false);
   }, []); // Add dependencies if any
 
-  const ensureProfile = useCallback(async (tok, uid, email) => {
+  const ensureProfile = useCallback(async (tok, uid, email, username) => {
     const res = await api(`profiles?id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } });
     const data = await res.json();
     if (!data.length) {
       await api("profiles", {
         method: "POST", _token: tok, prefer: "return=minimal",
-        body: JSON.stringify({ id: uid, email, theme: dark ? "dark" : "light" })
+        body: JSON.stringify({ id: uid, email, username, theme: dark ? "dark" : "light" })
       });
       // Add default habits for new users
       const defaultHabits = [
@@ -210,7 +212,8 @@ export default function App() {
       token.current = access_token;
       setSession(s);
       window.history.replaceState({}, document.title, window.location.pathname);
-      await ensureProfile(access_token, user.id, user.email);
+      const username = user.user_metadata?.name || user.email?.split("@")[0] || "User";
+      await ensureProfile(access_token, user.id, user.email, username);
       await loadData(access_token, user.id);
       setDataLoaded(true);
     } catch (e) { console.error(e); }
@@ -329,17 +332,19 @@ export default function App() {
 
   const addNote = async () => {
     if (!noteContent.trim()) return;
-    const newNote = { user_id: session.user.id, content: noteContent, date: noteDate };
+    const newNote = { user_id: session.user.id, content: noteContent, date: noteDate, color: noteColor };
     try {
-      await api("notes", {
+      const createRes = await api("notes", {
         method: "POST", _token: token.current, prefer: "return=minimal",
         body: JSON.stringify(newNote)
       });
+      
       const updatedNotes = await api(`notes?user_id=eq.${session.user.id}&order=date.desc`, { _token: token.current, headers: { "Accept": "application/json" } });
       const data = await updatedNotes.json();
       setNotes(Array.isArray(data) ? data : []);
       setNoteContent("");
       setNoteDate(getToday());
+      setNoteColor(null);
       setShowAddNote(false);
     } catch (e) { console.error(e); }
   };
@@ -484,12 +489,6 @@ export default function App() {
             <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Today's Progress</div>
             <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px" }}>{todayDone}/{habits.length}</div>
           </div>
-          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px", marginBottom: isMobile ? 12 : 20 }}>
-            <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, marginBottom: isMobile ? 12 : 16, letterSpacing: "0.5px", textTransform: "uppercase" }}>Overall Progress</div>
-            <div style={{ height: 6, background: border, borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${habits.length ? (todayDone / habits.length) * 100 : 0}%`, background: accent, borderRadius: 3, transition: "width 0.4s" }}></div>
-            </div>
-          </div>
           {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No habits yet. Add your first one!</div>}
           {habits.map(h => {
             const done = !!logs[h.id]?.[today];
@@ -627,10 +626,10 @@ export default function App() {
         {!dataLoading && view === "notes" && <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isMobile ? 16 : 24 }}>
             <div style={{ fontWeight: 600, fontSize: isMobile ? 18 : 24, letterSpacing: "-0.5px" }}>Notes</div>
-            {!isMobile && <button onClick={() => { setShowAddNote(true); setNoteContent(""); setNoteDate(getToday()); }} style={{ background: accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 600, transition: "all 0.2s" }}>+ Add Note</button>}
+            {!isMobile && <button onClick={() => { setShowAddNote(true); setNoteContent(""); setNoteDate(getToday()); setNoteColor(null); }} style={{ background: accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 600, transition: "all 0.2s" }}>+ Add Note</button>}
           </div>
           {isMobile && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 50 }}>
-            <button onClick={() => { setShowAddNote(true); setNoteContent(""); setNoteDate(getToday()); }} style={{ width: 56, height: 56, background: accent, color: "#fff", border: "none", borderRadius: 28, cursor: "pointer", fontSize: 24, fontWeight: 600, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(107, 92, 255, 0.3)" }}>+</button>
+            <button onClick={() => { setShowAddNote(true); setNoteContent(""); setNoteDate(getToday()); setNoteColor(null); }} style={{ width: 56, height: 56, background: accent, color: "#fff", border: "none", borderRadius: 28, cursor: "pointer", fontSize: 24, fontWeight: 600, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(107, 92, 255, 0.3)" }}>+</button>
           </div>}
           {notes.length === 0 ? (
             <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No notes yet. Start writing!</div>
