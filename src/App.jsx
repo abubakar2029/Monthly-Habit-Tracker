@@ -645,7 +645,7 @@ export default function App() {
                   <div
                     key={note.id}
                     style={{
-                      background: card,
+                      background: note.color || card,
                       borderRadius: 14,
                       border: `1px solid ${border}`,
                       padding: isMobile ? "14px 14px" : "16px 18px",
@@ -657,10 +657,10 @@ export default function App() {
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
-                      <div style={{ fontSize: isMobile ? 11 : 12, color: muted, fontWeight: 600, letterSpacing: "0.6px", opacity: 0.65 }}>{dateStr}</div>
-                      <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: muted, fontSize: isMobile ? 16 : 18, cursor: "pointer", padding: "2px 4px", transition: "color 0.2s", flexShrink: 0, opacity: 0.6, hover: { opacity: 1 } }} title="Delete note">×</button>
+                      <div style={{ fontSize: isMobile ? 11 : 12, color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : muted, fontWeight: 600, letterSpacing: "0.6px", opacity: 0.75 }}>{dateStr}</div>
+                      <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : muted, fontSize: isMobile ? 16 : 18, cursor: "pointer", padding: "2px 4px", transition: "color 0.2s", flexShrink: 0, opacity: 0.6, hover: { opacity: 1 } }} title="Delete note">×</button>
                     </div>
-                    <div style={{ fontSize: isMobile ? 14 : 15, color: text, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", flex: 1, fontWeight: 400 }}>{note.content}</div>
+                    <div style={{ fontSize: isMobile ? 14 : 15, color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : text, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", flex: 1, fontWeight: 400 }}>{note.content}</div>
                   </div>
                 );
               })}
