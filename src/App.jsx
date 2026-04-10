@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-const SUPABASE_URL = "https://erhpdewgxthnvovkvpmf.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaHBkZXdneHRobnZvdmt2cG1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NTAwNzYsImV4cCI6MjA5MDUyNjA3Nn0.XLAMCY_xdjsRRtuC9AM2-ijBNPqdeAOo1UXHbqFdPxk";
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 const COLORS = ["#7F77DD", "#1D9E75", "#D85A30", "#378ADD", "#D4537E", "#BA7517", "#639922"];
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -16,21 +16,30 @@ const api = (path, opts = {}) => fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
   }
 });
 
-function getToday() { return new Date().toISOString().split("T")[0]; }
-// function genId() { return "h" + Date.now(); }  
+function toYMDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getToday() {
+  // return new Date().toISOString().split("T")[0]; 
+  return toYMDate(new Date());
+}
 function getDaysInMonth(year, month) {
-  const days = [], d = new Date(year, month, 1);
-  while (d.getMonth() === month) { days.push(d.toISOString().split("T")[0]); d.setDate(d.getDate() + 1); }
+  const days = [];
+  const d = new Date(year, month, 1);
+
+  while (d.getMonth() === month) {
+    days.push(toYMDate(d));
+    d.setDate(d.getDate() + 1);
+  }
+
   return days;
 }
-function calcStreak(habitId, logs) {
-  let count = 0, d = new Date();
-  while (true) {
-    const key = d.toISOString().split("T")[0];
-    if (logs[habitId]?.[key]) { count++; d.setDate(d.getDate() - 1); } else break;
-  }
-  return count;
-}
+
+
 function loadTheme() { try { return localStorage.getItem("ht_theme") === "dark"; } catch { return window.matchMedia("(prefers-color-scheme: dark)").matches; } }
 function saveTheme(dark) { try { localStorage.setItem("ht_theme", dark ? "dark" : "light"); } catch { } }
 
@@ -51,13 +60,16 @@ export default function App() {
   const [noteDate, setNoteDate] = useState(getToday());
   const [noteColor, setNoteColor] = useState(null);
   const [dataLoading, setDataLoading] = useState(false);
-  const [longPressNote, setLongPressNote] = useState(null);
-  const longPressTimer = useRef(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [undoNote, setUndoNote] = useState(null);
+  const [undoHabit, setUndoHabit] = useState(null);
+  const undoTimer = useRef(null);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   const now = new Date();
   const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const today = getToday();
   const token = useRef(null);
+  const calendarTableRef = useRef(null);
 
   // Responsive hook
   useEffect(() => {
@@ -66,6 +78,28 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Calendar auto-scroll to today
+  useEffect(() => {
+    if (view === "month" && calendarTableRef.current && dataLoaded) {
+      // Use requestAnimationFrame for better timing
+      requestAnimationFrame(() => {
+        const container = calendarTableRef.current;
+        if (!container) return;
+        
+        // Find today's header using data-date attribute
+        const todayHeader = container.querySelector(`th[data-date="${today}"]`);
+        if (!todayHeader) return;
+        
+        // Calculate scroll position accounting for sticky column
+        const stickyColWidth = isMobile ? 120 : 160;
+        const headerLeft = todayHeader.offsetLeft;
+        const scrollTarget = Math.max(0, headerLeft - stickyColWidth - 20);
+        
+        // Smooth scroll to today
+        container.scrollLeft = scrollTarget;
+      });
+    }
+  }, [view, monthYear, today, isMobile, dataLoaded]);
 
   const loadData = useCallback(async (tok, uid) => {
     setDataLoading(true);
@@ -120,12 +154,40 @@ export default function App() {
       const stored = localStorage.getItem("ht_session");
       if (stored) {
         const s = JSON.parse(stored);
-        if (s.expires_at > Date.now() / 1000) {
+        const now = Date.now() / 1000;
+        // If token is expired, try to refresh it
+        if (s.expires_at <= now) {
+          if (s.refresh_token) {
+            try {
+              const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+                method: "POST",
+                headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+                body: JSON.stringify({ refresh_token: s.refresh_token })
+              });
+              if (res.ok) {
+                const newAuth = await res.json();
+                const refreshedSession = { 
+                  ...s, 
+                  access_token: newAuth.access_token, 
+                  refresh_token: newAuth.refresh_token || s.refresh_token,
+                  expires_at: now + (newAuth.expires_in || 3600) 
+                };
+                localStorage.setItem("ht_session", JSON.stringify(refreshedSession));
+                token.current = newAuth.access_token;
+                setSession(refreshedSession);
+                await loadData(newAuth.access_token, s.user.id);
+                setDataLoaded(true);
+                setAuthLoading(false);
+                return;
+              }
+            } catch (e) { console.error("Token refresh failed:", e); }
+          }
+          localStorage.removeItem("ht_session");
+        } else {
           token.current = s.access_token;
           setSession(s);
           await loadData(s.access_token, s.user.id);
-        } else {
-          localStorage.removeItem("ht_session");
+          setDataLoaded(true);
         }
       }
     } catch { }
@@ -153,6 +215,7 @@ export default function App() {
       const username = user.user_metadata?.name || user.email?.split("@")[0] || "User";
       await ensureProfile(access_token, user.id, user.email, username);
       await loadData(access_token, user.id);
+      setDataLoaded(true);
     } catch (e) { console.error(e); }
     setAuthLoading(false);
   }, [ensureProfile, loadData]
@@ -217,24 +280,52 @@ export default function App() {
 
   const addHabit = async () => {
     if (!newName.trim()) return;
-    try {
-      if (editHabit) {
-        const updated = { name: newName, color: newColor };
-        await api(`habits?id=eq.${editHabit}`, { method: "PATCH", _token: token.current, prefer: "return=minimal", body: JSON.stringify(updated) });
-      } else {
-        const newH = { user_id: session.user.id, name: newName, color: newColor, created_at: today };
-        await api("habits", { method: "POST", _token: token.current, prefer: "return=minimal", body: JSON.stringify(newH) });
-      }
-      loadData(token.current, session.user.id);
-      setShowAdd(false); setEditHabit(null); setNewName(""); setNewColor(COLORS[0]);
-    } catch (e) { console.error(e); }
+    if (editHabit) {
+      const updated = { name: newName, color: newColor };
+      setHabits(h => h.map(x => x.id === editHabit ? { ...x, ...updated } : x));
+      await api(`habits?id=eq.${editHabit}`, { method: "PATCH", _token: token.current, prefer: "return=minimal", body: JSON.stringify(updated) });
+      setEditHabit(null);
+    } else {
+      const newH = { user_id: session.user.id, name: newName, color: newColor, created_at: today };
+      const res = await api("habits", { method: "POST", _token: token.current, prefer: "return=representation", headers: { "Accept": "application/json" }, body: JSON.stringify(newH) });
+      const data = await res.json();
+      setHabits(h => [...h, ...data]);
+    }
+    setNewName(""); setNewColor(COLORS[0]); setShowAdd(false);
   };
 
   const deleteHabit = async id => {
+    const habitToDelete = habits.find(h => h.id === id);
+    if (!habitToDelete) return;
+    
+    const oldLogs = logs[id];
+    
+    // Remove from UI immediately
     setHabits(h => h.filter(x => x.id !== id));
     setLogs(l => { const c = { ...l }; delete c[id]; return c; });
-    await api(`habit_logs?habit_id=eq.${id}`, { method: "DELETE", _token: token.current });
-    await api(`habits?id=eq.${id}`, { method: "DELETE", _token: token.current });
+    setUndoHabit({ habit: habitToDelete, logs: oldLogs, timer: null });
+    
+    // Clear existing timer if any
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    
+    // Set 5-second undo timer
+    const timer = setTimeout(async () => {
+      try {
+        await api(`habit_logs?habit_id=eq.${id}`, { method: "DELETE", _token: token.current });
+        await api(`habits?id=eq.${id}`, { method: "DELETE", _token: token.current });
+        setUndoHabit(null);
+      } catch (e) { 
+        console.error(e);
+        // Restore habit if deletion fails
+        setHabits(h => [...h, habitToDelete]);
+        if (oldLogs) {
+          setLogs(l => ({ ...l, [id]: oldLogs }));
+        }
+        setUndoHabit(null);
+      }
+    }, 5000);
+    
+    undoTimer.current = timer;
   };
 
   const openEdit = h => { setEditHabit(h.id); setNewName(h.name); setNewColor(h.color); setShowAdd(true); };
@@ -259,25 +350,55 @@ export default function App() {
   };
 
   const deleteNote = async (id) => {
-    try {
-      await api(`notes?id=eq.${id}`, { method: "DELETE", _token: token.current });
-      setNotes(n => n.filter(note => note.id !== id));
-      setLongPressNote(null);
-    } catch (e) { console.error(e); }
+    const noteToDelete = notes.find(n => n.id === id);
+    if (!noteToDelete) return;
+    
+    // Remove from UI immediately
+    setNotes(n => n.filter(note => note.id !== id));
+    setUndoNote({ note: noteToDelete, timer: null });
+    
+    // Clear existing timer if any
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    
+    // Set 5-second undo timer
+    const timer = setTimeout(async () => {
+      try {
+        await api(`notes?id=eq.${id}`, { method: "DELETE", _token: token.current });
+        setUndoNote(null);
+      } catch (e) { 
+        console.error(e);
+        // Restore note if deletion fails
+        setNotes(n => [...n, noteToDelete]);
+        setUndoNote(null);
+      }
+    }, 3500);
+    
+    undoTimer.current = timer;
+  };
+
+  const restoreNote = () => {
+    if (undoNote) {
+      setNotes(n => [...n, undoNote.note]);
+      setUndoNote(null);
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    }
+  };
+
+  const restoreHabit = () => {
+    if (undoHabit) {
+      setHabits(h => [...h, undoHabit.habit]);
+      if (undoHabit.logs) {
+        setLogs(l => ({ ...l, [undoHabit.habit.id]: undoHabit.logs }));
+      }
+      setUndoHabit(null);
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    }
   };
 
 
-  const handleNoteLongPressStart = (noteId) => {
-    longPressTimer.current = setTimeout(() => {
-      setLongPressNote(noteId);
-    }, 500);
-  };
 
-  const handleNoteLongPressEnd = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-  };
 
-  // ── Theme tokens ──────────────────────────────────────
+  // ── Theme tokens ────────���─────────────────────────────
   const bg = dark ? "#0f0f0f" : "#fafaf9";
   const card = dark ? "#1a1a1a" : "#ffffff";
   const border = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
@@ -319,7 +440,7 @@ export default function App() {
     </div>
   );
 
-  // ── Main App ───────────────────���──────────────────────
+  // ── Main App ───────────────────────────────────��──────
   const userInitial = (session.user.email || "U")[0].toUpperCase();
 
   return (
@@ -364,19 +485,14 @@ export default function App() {
 
         {/* TODAY */}
         {!dataLoading && view === "today" && <>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 20, marginBottom: isMobile ? 12 : 20 }}>
-            <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px" }}>
-              <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Today's Progress</div>
-              <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px" }}>{todayDone}/{habits.length}</div>
-            </div>
-            <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px" }}>
-              <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Completion</div>
-              <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px", color: accent }}>{habits.length ? Math.round((todayDone / habits.length) * 100) : 0}%</div>
-            </div>
+          <div style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "16px 20px" : "24px 28px", marginBottom: isMobile ? 12 : 20 }}>
+            <div style={{ fontSize: isMobile ? 11 : 13, color: muted, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase" }}>Today's Progress</div>
+            <div style={{ fontSize: isMobile ? 36 : 48, fontWeight: 700, marginTop: isMobile ? 8 : 12, letterSpacing: "-1px" }}>{todayDone}/{habits.length}</div>
           </div>
           {habits.length === 0 && <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No habits yet. Add your first one!</div>}
           {habits.map(h => {
-            const done = !!logs[h.id]?.[today], s = calcStreak(h.id, logs);
+            const done = !!logs[h.id]?.[today];
+            const s = monthDays.filter(d => logs[h.id]?.[d]).length;
             return (
               <div key={h.id} style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, padding: isMobile ? "12px 14px" : "20px 24px", marginBottom: isMobile ? 8 : 12, display: "flex", alignItems: "center", gap: isMobile ? 12 : 16, transition: "all 0.2s" }}>
                 <button onClick={() => toggleLog(h.id, today)} style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: "50%", border: `2.5px solid ${done ? h.color : border}`, background: done ? h.color : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
@@ -384,8 +500,11 @@ export default function App() {
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: isMobile ? 14 : 16, textDecoration: done ? "line-through" : "none", color: done ? muted : text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
-                  <div style={{ fontSize: isMobile ? 11 : 13, color: muted, marginTop: 2 }}>
-                    {s > 0 && <span style={{ color: h.color, fontWeight: 600 }}>🔥 {s} day streak</span>}
+                  <div style={{ fontSize: isMobile ? 11 : 13, color: h.color, marginTop: 2, fontWeight: 600 }}>{
+
+                    s === monthDays.length && monthDays.length > 0 ? "🔥 " : ""}
+                    {s} day{s !== 1 ? "s" : ""} completed
+
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: isMobile ? 6 : 10, flexShrink: 0 }}>
@@ -406,7 +525,7 @@ export default function App() {
             <button onClick={nextMonth} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", cursor: "pointer", color: text, fontSize: isMobile ? 14 : 18, fontWeight: 500, transition: "all 0.2s" }}>→</button>
           </div>
 
-          <div className="scrollable-table" style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, marginBottom: isMobile ? 20 : 32, overflowX: "auto" }}>
+          <div ref={calendarTableRef} className="scrollable-table" style={{ background: card, borderRadius: 12, border: `1px solid ${border}`, marginBottom: isMobile ? 20 : 32, overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", minWidth: "100%", width: "100%" }}>
               <thead>
                 <tr>
@@ -414,7 +533,7 @@ export default function App() {
                   {monthDays.map(d => {
                     const dt = new Date(d + "T00:00:00"), isToday = d === today;
                     return (
-                      <th key={d} style={{ padding: isMobile ? "8px 4px" : "12px 6px", minWidth: isMobile ? 24 : 28, textAlign: "center", borderBottom: `1px solid ${border}`, fontWeight: 500 }}>
+                      <th key={d} data-date={d} style={{ padding: isMobile ? "8px 4px" : "12px 6px", minWidth: isMobile ? 24 : 28, textAlign: "center", borderBottom: `1px solid ${border}`, fontWeight: 500 }}>
                         <div style={{ color: isToday ? accent : muted, fontSize: isMobile ? 9 : 11, fontWeight: 600 }}>{DAY_LABELS[dt.getDay()]}</div>
                         <div style={{ color: isToday ? accent : text, fontSize: isMobile ? 10 : 12, fontWeight: isToday ? 700 : 600, marginTop: 2, background: isToday ? border : "transparent", padding: isToday ? "2px 4px" : "0", borderRadius: 4 }}>{dt.getDate()}</div>
                       </th>
@@ -425,7 +544,7 @@ export default function App() {
               <tbody>
                 {habits.map((h, hi) => (
                   <tr key={h.id} style={{ borderBottom: `1px solid ${border}` }}>
-                    <td style={{ padding: isMobile ? "10px 12px" : "14px 16px", position: "sticky", left: 0, background: card, zIndex: 1, maxWidth: isMobile ? 100 : 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <td style={{ padding: isMobile ? "10px 12px" : "14px 16px", position: "sticky", left: 0, background: card, zIndex: 1, maxWidth: isMobile ? 120 : 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
                         <div style={{ width: 6, height: 6, borderRadius: "50%", background: h.color, flexShrink: 0 }}></div>
                         <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 500, color: text, overflow: "hidden", textOverflow: "ellipsis" }}>{h.name}</span>
@@ -515,39 +634,33 @@ export default function App() {
           {notes.length === 0 ? (
             <div style={{ textAlign: "center", color: muted, padding: isMobile ? "40px 20px" : "60px 32px", fontSize: isMobile ? 14 : 16 }}>No notes yet. Start writing!</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(320px, 1fr))", gap: isMobile ? 14 : 18 }}>
               {notes.map(note => {
                 const noteDateTime = new Date(note.date + "T00:00:00");
-                const dateStr = noteDateTime.toLocaleDateString("en-US", { month: "short", day: "numeric", year: noteDateTime.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined });
+                const day = String(noteDateTime.getDate()).padStart(2, "0");
+                const monthName = noteDateTime.toLocaleDateString("en-US", { month: "long" });
+                const year = noteDateTime.getFullYear();
+                const dateStr = `${day} / ${monthName} / ${year}`;
                 return (
                   <div
                     key={note.id}
-                    onTouchStart={() => handleNoteLongPressStart(note.id)}
-                    onTouchEnd={handleNoteLongPressEnd}
-                    onMouseDown={() => handleNoteLongPressStart(note.id)}
-                    onMouseUp={handleNoteLongPressEnd}
-                    onMouseLeave={handleNoteLongPressEnd}
                     style={{
-                      background: note.color || card,
-                      borderRadius: 10,
-                      border: note.color ? `1px solid ${border}` : `1px solid ${border}`,
-                      padding: isMobile ? "14px 16px" : "16px 20px",
+                      background: card,
+                      borderRadius: 14,
+                      border: `1px solid ${border}`,
+                      padding: isMobile ? "14px 14px" : "16px 18px",
                       position: "relative",
-                      transition: "all 0.2s"
+                      transition: "all 0.2s",
+                      display: "flex",
+                      flexDirection: "column",
+                      hover: { borderColor: accent }
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: isMobile ? 11 : 12, color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : accent, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.4px" }}>{dateStr}</div>
-                        <div style={{ fontSize: isMobile ? 13 : 14, color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{note.content}</div>
-                      </div>
-                      {!isMobile && <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : muted, fontSize: 18, cursor: "pointer", padding: "4px 8px", transition: "color 0.2s" }} title="Delete">×</button>}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
+                      <div style={{ fontSize: isMobile ? 11 : 12, color: muted, fontWeight: 600, letterSpacing: "0.6px", opacity: 0.65 }}>{dateStr}</div>
+                      <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: muted, fontSize: isMobile ? 16 : 18, cursor: "pointer", padding: "2px 4px", transition: "color 0.2s", flexShrink: 0, opacity: 0.6, hover: { opacity: 1 } }} title="Delete note">×</button>
                     </div>
-                    {isMobile && longPressNote === note.id && (
-                      <div style={{ position: "absolute", bottom: -50, left: 0, right: 0, height: 50, background: "rgba(226, 75, 74, 0.9)", borderRadius: "0 0 10px 10px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => deleteNote(note.id)}>
-                        <div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>Delete</div>
-                      </div>
-                    )}
+                    <div style={{ fontSize: isMobile ? 14 : 15, color: text, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", flex: 1, fontWeight: 400 }}>{note.content}</div>
                   </div>
                 );
               })}
@@ -559,7 +672,7 @@ export default function App() {
       {/* Add Note Modal */}
       {showAddNote && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddNote(false); }}>
-          <div style={{ background: card, borderRadius: "12px", padding: isMobile ? "24px 20px" : "32px 28px 40px", width: "100%", maxWidth: 500, maxHeight: "85vh", overflowY: "auto", margin: isMobile ? "20px" : "0" }}>
+          <div style={{ background: card, borderRadius: "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto", margin: isMobile ? "0 16px" : "0" }}>
             <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>Add Note</div>
             <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Write something on your mind</div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
@@ -567,12 +680,9 @@ export default function App() {
               <textarea value={noteContent} onChange={e => setNoteContent(e.target.value)} placeholder="Type your note here..." style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500, fontFamily: "inherit", minHeight: 120, resize: "none" }} />
             </div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
-              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 8, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Background Color (Optional)</label>
-              <div style={{ display: "flex", gap: isMobile ? 8 : 12, flexWrap: isMobile ? "wrap" : "nowrap" }}>
-                <button onClick={() => setNoteColor(null)} style={{ flex: isMobile ? "1 1 calc(50% - 4px)" : 1, padding: isMobile ? "10px 12px" : "14px 16px", borderRadius: 8, border: noteColor === null ? `2px solid ${accent}` : `1px solid ${border}`, background: "transparent", color: text, cursor: "pointer", fontSize: isMobile ? 12 : 14, fontWeight: 600, transition: "all 0.2s" }}>Default</button>
-                <button onClick={() => setNoteColor("#dcfce7")} style={{ flex: isMobile ? "1 1 calc(50% - 4px)" : 1, padding: isMobile ? "10px 12px" : "14px 16px", borderRadius: 8, border: noteColor === "#dcfce7" ? `2px solid ${accent}` : `1px solid ${border}`, background: "#dcfce7", color: "#166534", cursor: "pointer", fontSize: isMobile ? 12 : 14, fontWeight: 600, transition: "all 0.2s" }}>Green</button>
-                <button onClick={() => setNoteColor("#fce7f3")} style={{ flex: isMobile ? "1 1 calc(50% - 4px)" : 1, padding: isMobile ? "10px 12px" : "14px 16px", borderRadius: 8, border: noteColor === "#fce7f3" ? `2px solid ${accent}` : `1px solid ${border}`, background: "#fce7f3", color: "#be185d", cursor: "pointer", fontSize: isMobile ? 12 : 14, fontWeight: 600, transition: "all 0.2s" }}>Pink</button>
-                <button onClick={() => setNoteColor("#dbeafe")} style={{ flex: isMobile ? "1 1 calc(50% - 4px)" : 1, padding: isMobile ? "10px 12px" : "14px 16px", borderRadius: 8, border: noteColor === "#dbeafe" ? `2px solid ${accent}` : `1px solid ${border}`, background: "#dbeafe", color: "#0c4a6e", cursor: "pointer", fontSize: isMobile ? 12 : 14, fontWeight: 600, transition: "all 0.2s" }}>Blue</button>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Date</label>
+              <div style={{ width: "90%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, fontWeight: 500 }}>
+                {new Date(today + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </div>
             </div>
             <div style={{ display: "flex", gap: isMobile ? 10 : 12 }}>
@@ -586,7 +696,7 @@ export default function App() {
       {/* Add/Edit Modal */}
       {showAdd && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setEditHabit(null); } }}>
-          <div style={{ background: card, borderRadius: "12px", padding: isMobile ? "24px 20px" : "32px 28px 40px", width: "100%", maxWidth: 500, maxHeight: "85vh", overflowY: "auto", margin: isMobile ? "20px" : "0" }}>
+          <div style={{ background: card, borderRadius: "12px", padding: isMobile ? "24px 20px 32px" : "32px 28px 40px", width: "100%", maxWidth: 600, maxHeight: "85vh", overflowY: "auto", margin: isMobile ? "0 16px" : "0" }}>
             <div style={{ fontWeight: 700, fontSize: isMobile ? 18 : 22, marginBottom: 8, letterSpacing: "-0.5px" }}>{editHabit ? "Edit Habit" : "Create New Habit"}</div>
             <div style={{ fontSize: isMobile ? 13 : 14, color: muted, marginBottom: isMobile ? 20 : 28 }}>Set up a habit to track daily</div>
             <div style={{ marginBottom: isMobile ? 16 : 20 }}>
@@ -594,7 +704,7 @@ export default function App() {
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g., Meditate for 10 minutes" style={{ width: "100%", padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: isMobile ? 13 : 14, boxSizing: "border-box", fontWeight: 500 }} onKeyDown={e => e.key === "Enter" && addHabit()} />
             </div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
-              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: isMobile ? 8 : 12, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Habit Color</label>
+              <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: isMobile ? 8 : 12, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Color</label>
               <div style={{ display: "flex", gap: isMobile ? 10 : 12, flexWrap: "wrap" }}>
                 {COLORS.map(c => (
                   <button key={c} onClick={() => setNewColor(c)} style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: "50%", background: c, border: `3px solid ${newColor === c ? text : "transparent"}`, cursor: "pointer", transition: "all 0.2s" }} title="Select color"></button>
@@ -606,6 +716,14 @@ export default function App() {
               <button onClick={addHabit} style={{ flex: 1.2, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: "none", background: accent, color: "#fff", cursor: "pointer", fontSize: isMobile ? 13 : 15, fontWeight: 600, transition: "all 0.2s" }}>{editHabit ? "Save Changes" : "Create Habit"}</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Undo Toast */}
+      {(undoNote || undoHabit) && (
+        <div style={{ position: "fixed", bottom: isMobile ? 16 : 24, left: isMobile ? 16 : 24, background: card, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, zIndex: 1000, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
+          <div style={{ flex: 1, fontSize: isMobile ? 13 : 14, color: text, fontWeight: 500 }}>{undoNote ? "Note deleted" : "Habit deleted"}</div>
+          <button onClick={undoNote ? restoreNote : restoreHabit} style={{ background: accent, border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.2s" }}>Undo</button>
         </div>
       )}
     </div>
