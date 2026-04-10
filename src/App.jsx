@@ -93,13 +93,13 @@ export default function App() {
     setDataLoading(false);
   }, []); // Add dependencies if any
 
-  const ensureProfile = useCallback(async (tok, uid, email) => {
+  const ensureProfile = useCallback(async (tok, uid, email, username) => {
     const res = await api(`profiles?id=eq.${uid}`, { _token: tok, headers: { "Accept": "application/json" } });
     const data = await res.json();
     if (!data.length) {
       await api("profiles", {
         method: "POST", _token: tok, prefer: "return=minimal",
-        body: JSON.stringify({ id: uid, email, theme: dark ? "dark" : "light" })
+        body: JSON.stringify({ id: uid, email, username, theme: dark ? "dark" : "light" })
       });
       // Add default habits for new users
       const defaultHabits = [
@@ -150,7 +150,8 @@ export default function App() {
       token.current = access_token;
       setSession(s);
       window.history.replaceState({}, document.title, window.location.pathname);
-      await ensureProfile(access_token, user.id, user.email);
+      const username = user.user_metadata?.name || user.email?.split("@")[0] || "User";
+      await ensureProfile(access_token, user.id, user.email, username);
       await loadData(access_token, user.id);
     } catch (e) { console.error(e); }
     setAuthLoading(false);
@@ -318,7 +319,7 @@ export default function App() {
     </div>
   );
 
-  // ── Main App ──────────────────────────────────────────
+  // ── Main App ───────────────────���──────────────────────
   const userInitial = (session.user.email || "U")[0].toUpperCase();
 
   return (
@@ -537,10 +538,10 @@ export default function App() {
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: isMobile ? 11 : 12, color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : accent, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.4px" }}>{dateStr}</div>
-                        <div style={{ fontSize: isMobile ? 13 : 14, color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{note.content}</div>
+                        <div style={{ fontSize: isMobile ? 11 : 12, color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : accent, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.4px" }}>{dateStr}</div>
+                        <div style={{ fontSize: isMobile ? 13 : 14, color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{note.content}</div>
                       </div>
-                      {!isMobile && <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : muted, fontSize: 18, cursor: "pointer", padding: "4px 8px", transition: "color 0.2s" }} title="Delete">×</button>}
+                      {!isMobile && <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: note.color === "#dcfce7" ? "#166534" : note.color === "#fce7f3" ? "#be185d" : note.color === "#dbeafe" ? "#0c4a6e" : muted, fontSize: 18, cursor: "pointer", padding: "4px 8px", transition: "color 0.2s" }} title="Delete">×</button>}
                     </div>
                     {isMobile && longPressNote === note.id && (
                       <div style={{ position: "absolute", bottom: -50, left: 0, right: 0, height: 50, background: "rgba(226, 75, 74, 0.9)", borderRadius: "0 0 10px 10px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => deleteNote(note.id)}>
@@ -567,10 +568,11 @@ export default function App() {
             </div>
             <div style={{ marginBottom: isMobile ? 20 : 28 }}>
               <label style={{ fontSize: isMobile ? 11 : 13, color: muted, marginBottom: 8, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Background Color (Optional)</label>
-              <div style={{ display: "flex", gap: 12 }}>
-                <button onClick={() => setNoteColor(null)} style={{ flex: 1, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: noteColor === null ? `2px solid ${accent}` : `1px solid ${border}`, background: "transparent", color: text, cursor: "pointer", fontSize: isMobile ? 13 : 14, fontWeight: 600, transition: "all 0.2s" }}>Default</button>
-                <button onClick={() => setNoteColor("#dcfce7")} style={{ flex: 1, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: noteColor === "#dcfce7" ? `2px solid ${accent}` : `1px solid ${border}`, background: "#dcfce7", color: "#166534", cursor: "pointer", fontSize: isMobile ? 13 : 14, fontWeight: 600, transition: "all 0.2s" }}>Light Green</button>
-                <button onClick={() => setNoteColor("#fce7f3")} style={{ flex: 1, padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 8, border: noteColor === "#fce7f3" ? `2px solid ${accent}` : `1px solid ${border}`, background: "#fce7f3", color: "#be185d", cursor: "pointer", fontSize: isMobile ? 13 : 14, fontWeight: 600, transition: "all 0.2s" }}>Light Pink</button>
+              <div style={{ display: "flex", gap: isMobile ? 8 : 12, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+                <button onClick={() => setNoteColor(null)} style={{ flex: isMobile ? "1 1 calc(50% - 4px)" : 1, padding: isMobile ? "10px 12px" : "14px 16px", borderRadius: 8, border: noteColor === null ? `2px solid ${accent}` : `1px solid ${border}`, background: "transparent", color: text, cursor: "pointer", fontSize: isMobile ? 12 : 14, fontWeight: 600, transition: "all 0.2s" }}>Default</button>
+                <button onClick={() => setNoteColor("#dcfce7")} style={{ flex: isMobile ? "1 1 calc(50% - 4px)" : 1, padding: isMobile ? "10px 12px" : "14px 16px", borderRadius: 8, border: noteColor === "#dcfce7" ? `2px solid ${accent}` : `1px solid ${border}`, background: "#dcfce7", color: "#166534", cursor: "pointer", fontSize: isMobile ? 12 : 14, fontWeight: 600, transition: "all 0.2s" }}>Green</button>
+                <button onClick={() => setNoteColor("#fce7f3")} style={{ flex: isMobile ? "1 1 calc(50% - 4px)" : 1, padding: isMobile ? "10px 12px" : "14px 16px", borderRadius: 8, border: noteColor === "#fce7f3" ? `2px solid ${accent}` : `1px solid ${border}`, background: "#fce7f3", color: "#be185d", cursor: "pointer", fontSize: isMobile ? 12 : 14, fontWeight: 600, transition: "all 0.2s" }}>Pink</button>
+                <button onClick={() => setNoteColor("#dbeafe")} style={{ flex: isMobile ? "1 1 calc(50% - 4px)" : 1, padding: isMobile ? "10px 12px" : "14px 16px", borderRadius: 8, border: noteColor === "#dbeafe" ? `2px solid ${accent}` : `1px solid ${border}`, background: "#dbeafe", color: "#0c4a6e", cursor: "pointer", fontSize: isMobile ? 12 : 14, fontWeight: 600, transition: "all 0.2s" }}>Blue</button>
               </div>
             </div>
             <div style={{ display: "flex", gap: isMobile ? 10 : 12 }}>
