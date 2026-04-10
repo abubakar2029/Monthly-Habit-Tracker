@@ -16,6 +16,11 @@ CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date);
 -- Enable RLS
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own notes" ON notes;
+DROP POLICY IF EXISTS "Users can insert their own notes" ON notes;
+DROP POLICY IF EXISTS "Users can delete their own notes" ON notes;
+
 -- Create RLS policy to allow users to see their own notes
 CREATE POLICY "Users can view their own notes" ON notes
   FOR SELECT USING (auth.uid() = user_id);
